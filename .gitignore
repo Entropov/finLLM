@@ -1,0 +1,69 @@
+# ============================================================
+# Fin-Instruct .gitignore
+# ============================================================
+
+# ------ Python ------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+
+# ------ 虚拟环境 ------
+.venv/
+venv/
+env/
+.conda/
+
+# ------ 原始数据（体积大，不入库）------
+data/raw/
+data/processed/
+data/sft/*.json
+!data/sft/.gitkeep
+!data/dataset_info.json
+
+# ------ 模型权重与 Checkpoint ------
+saves/
+outputs/
+*.ckpt
+*.safetensors
+*.bin
+*.pt
+*.pth
+
+# ------ 日志与可视化 ------
+wandb/
+runs/
+logs/
+*.log
+tensorboard/
+
+# ------ IDE 与编辑器 ------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ------ Jupyter ------
+.ipynb_checkpoints/
+*.ipynb
+
+# ------ 系统文件 ------
+*.tmp
+*.bak
+*.cache
+
+# ------ LLaMA-Factory（如本地克隆）------
+LLaMA-Factory/
+
+# ------ 敏感配置（API Key 等）------
+.env
+*.env
+secrets.yaml

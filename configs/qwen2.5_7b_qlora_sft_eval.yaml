@@ -1,0 +1,35 @@
+# ============================================================
+# Fin-Instruct 模型评估配置
+# 加载训练好的 LoRA adapter 进行验证集评估
+# ============================================================
+
+# ==================== 模型配置 ====================
+model_name_or_path: Qwen/Qwen2.5-7B-Instruct
+adapter_name_or_path: saves/qwen2.5-7b/lora/sft   # 加载训练好的 LoRA adapter
+trust_remote_code: true
+
+# ==================== 量化配置（与训练一致）====================
+quantization_bit: 4
+quantization_method: bitsandbytes
+
+# ==================== 微调方法 ====================
+stage: sft
+do_eval: true                      # 执行评估（非训练）
+finetuning_type: lora
+
+# ==================== 数据集配置 ====================
+dataset: fin_instruct_eval         # 使用独立的评估数据集
+dataset_dir: data
+template: qwen
+cutoff_len: 4096
+preprocessing_num_workers: 16
+
+# ==================== 输出配置 ====================
+output_dir: saves/qwen2.5-7b/lora/eval   # 评估结果输出目录
+overwrite_output_dir: true
+
+# ==================== 评估参数 ====================
+per_device_eval_batch_size: 2
+predict_with_generate: true        # 使用生成模式评估（而非仅计算 loss）
+max_new_tokens: 1024               # 生成的最大 token 数
+bf16: true

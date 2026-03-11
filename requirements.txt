@@ -1,0 +1,68 @@
+# ============================================================
+# Fin-Instruct 项目依赖清单
+# 基于 LLaMA-Factory + Qwen2.5-7B-Instruct QLoRA 微调
+# ============================================================
+
+# ------ 核心训练框架 ------
+# LLaMA-Factory 通过 `pip install -e .` 从 Git 仓库安装
+# git clone --depth 1 https://github.com/hiyouga/LLaMA-Factory.git
+# cd LLaMA-Factory && pip install -e .
+
+torch>=2.6.0
+transformers>=4.49.0,<4.52.0
+datasets>=3.2.0
+accelerate>=1.2.0
+peft>=0.15.0
+trl>=0.9.0
+
+# ------ QLoRA 量化核心 ------
+bitsandbytes>=0.43.0
+
+# ------ 注意力加速（可选，建议 Linux/WSL2 环境安装）------
+# flash-attn>=2.7.0  # 使用: pip install flash-attn --no-build-isolation
+
+# ------ 分词与文本处理 ------
+tiktoken>=0.7.0
+sentencepiece>=0.2.0
+jieba>=0.42.1
+protobuf>=4.25.0
+
+# ------ 金融数据采集 ------
+akshare>=1.18.0
+tushare>=1.2.89
+requests>=2.31.0
+lxml>=5.1.0
+
+# ------ 数据处理与分析 ------
+pandas>=2.0.0
+numpy>=1.24.0
+scipy>=1.12.0
+tqdm>=4.66.0
+
+# ------ 评测指标 ------
+rouge-score>=0.1.2
+nltk>=3.8.0
+scikit-learn>=1.4.0
+
+# ------ 推理与交互演示 ------
+gradio>=4.0.0
+uvicorn>=0.27.0
+fastapi>=0.109.0
+sse-starlette>=1.6.0
+
+# ------ 可视化与日志 ------
+tensorboard>=2.16.0
+matplotlib>=3.8.0
+
+# ------ 开发与测试 ------
+pytest>=8.0.0
+pytest-cov>=4.1.0
+black>=24.0.0
+ruff>=0.3.0
+
+# ------ 异步与重试 ------
+tenacity>=8.2.0
+aiohttp>=3.9.0
+
+# ------ 可选：高性能推理（需 Linux 环境）------
+# vllm>=0.6.0

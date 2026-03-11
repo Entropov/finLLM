@@ -1,0 +1,66 @@
+# ============================================================
+# Fin-Instruct QLoRA SFT 训练配置
+# 基座模型: Qwen2.5-7B-Instruct
+# 硬件目标: 单卡 RTX 5090 32GB
+# 框架: LLaMA-Factory
+# ============================================================
+
+# ==================== 模型配置 ====================
+model_name_or_path: Qwen/Qwen2.5-7B-Instruct    # HuggingFace 模型路径
+trust_remote_code: true                            # Qwen 模型需要信任远程代码
+
+# ==================== QLoRA 量化配置 ====================
+quantization_bit: 4                # 4-bit NF4 量化，显著降低显存占用
+quantization_method: bitsandbytes  # 使用 bitsandbytes 进行量化
+
+# ==================== 微调方法配置 ====================
+stage: sft                         # 监督微调阶段
+do_train: true                     # 执行训练
+finetuning_type: lora              # 使用 LoRA 微调
+lora_rank: 16                      # LoRA 秩，金融领域建议 16（比默认 8 更强）
+lora_alpha: 32                     # LoRA alpha，通常设为 2 * lora_rank
+lora_dropout: 0.05                 # LoRA Dropout，轻度正则化防止过拟合
+lora_target: all                   # 对所有线性层注入 LoRA（官方推荐）
+
+# ==================== 数据集配置 ====================
+dataset: fin_instruct_train        # 对应 dataset_info.json 中注册的数据集名
+dataset_dir: data                  # 数据集根目录（相对于运行目录）
+template: qwen                     # Qwen2.5 使用 ChatML 格式模板
+cutoff_len: 4096                   # 最大序列长度，4096 可覆盖大部分财报分析场景
+max_samples: 100000                # 最大训练样本数（设为较大值，实际取决于数据量）
+overwrite_cache: true              # 覆盖数据缓存，数据更新后需要
+preprocessing_num_workers: 16      # 数据预处理并行线程数
+dataloader_num_workers: 4          # DataLoader 工作线程数
+
+# ==================== 输出配置 ====================
+output_dir: saves/qwen2.5-7b/lora/sft    # 训练输出目录（checkpoint、日志等）
+logging_steps: 10                         # 每 10 步记录一次日志
+save_steps: 500                           # 每 500 步保存一次 checkpoint
+save_total_limit: 3                       # 最多保留 3 个 checkpoint，节省磁盘
+plot_loss: true                           # 训练结束后绘制 loss 曲线图
+overwrite_output_dir: true                # 覆盖已有的输出目录
+report_to: tensorboard                    # 使用 TensorBoard 记录训练日志
+
+# ==================== 训练超参数 ====================
+per_device_train_batch_size: 2     # 单卡 batch size（RTX 5090 32GB QLoRA 可用 4）
+gradient_accumulation_steps: 8     # 梯度累积步数，有效 batch_size = 4 * 4 = 16
+learning_rate: 1.0e-4              # 学习率，QLoRA 标准范围
+num_train_epochs: 3.0              # 训练 3 个 epoch
+lr_scheduler_type: cosine          # 余弦退火学习率调度
+warmup_ratio: 0.1                  # 预热比例，前 10% 步数进行 warmup
+weight_decay: 0.01                 # 权重衰减，轻度正则化
+max_grad_norm: 1.0                 # 梯度裁剪，防止梯度爆炸
+bf16: true                         # 使用 BF16 混合精度（RTX 5090 原生支持）
+ddp_timeout: 180000000             # DDP 超时设置（单卡训练时不影响）
+seed: 42                           # 随机种子，保证可复现性
+
+# ==================== 验证配置 ====================
+val_size: 0.05                     # 从训练集中划分 5% 作为验证集
+per_device_eval_batch_size: 2      # 验证阶段 batch size
+eval_strategy: steps               # 按步数进行验证
+eval_steps: 500                    # 每 500 步验证一次
+load_best_model_at_end: true       # 训练结束后加载最优模型
+
+# ==================== 可选加速 ====================
+# flash_attn: fa2                  # 启用 FlashAttention-2（需安装 flash-attn）
+# enable_liger_kernel: true        # 启用 Liger Kernel 加速（实验性）

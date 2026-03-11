@@ -1,0 +1,28 @@
+# ============================================================
+# Fin-Instruct 推理配置
+# 加载合并后的模型或 LoRA adapter 进行交互式推理
+# ============================================================
+
+# ==================== 模型配置 ====================
+# 方式一：加载合并后的完整模型（推荐用于部署）
+model_name_or_path: saves/qwen2.5-7b/merged
+
+# 方式二：加载基座模型 + LoRA adapter（开发调试用）
+# model_name_or_path: Qwen/Qwen2.5-7B-Instruct
+# adapter_name_or_path: saves/qwen2.5-7b/lora/sft/checkpoint-2000
+# trust_remote_code: true
+
+# ==================== 量化配置 ====================
+quantization_bit: 4                # 推理时也使用 4-bit 量化节省显存
+quantization_method: bitsandbytes
+
+# ==================== 微调方法 ====================
+finetuning_type: lora
+template: qwen
+
+# ==================== 生成参数 ====================
+temperature: 0.7                   # 温度系数，控制生成多样性
+top_p: 0.9                         # 核采样概率
+top_k: 50                          # Top-K 采样
+max_new_tokens: 2048               # 最大生成 token 数
+repetition_penalty: 1.1            # 重复惩罚系数，避免重复输出
