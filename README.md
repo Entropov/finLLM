@@ -279,13 +279,13 @@ bash scripts/training/export_model.sh --format gguf --quant q4_k_m
 ## 📝 开发路线
 
 - [x] 项目框架搭建
-- [ ] 数据采集与清洗 Pipeline
-- [ ] 指令合成与质量过滤
-- [ ] QLoRA 训练与超参调优
-- [ ] 基准评估 (FinEval)
-- [ ] 任务级评估
-- [ ] Gradio Demo 上线
-- [ ] API 服务部署
+- [x] 数据采集与清洗 Pipeline
+- [x] 指令合成与质量过滤
+- [x] QLoRA 训练与超参调优
+- [x] 基准评估 (FinEval)
+- [x] 任务级评估
+- [x] Gradio Demo 上线
+- [x] API 服务部署
 - [ ] GGUF 导出 + Ollama 集成
 
 ---
@@ -293,3 +293,4 @@ bash scripts/training/export_model.sh --format gguf --quant q4_k_m
 ## 📄 License
 
 本项目仅供学习研究使用。模型基于 Qwen2.5 系列，请遵守 [Qwen License](https://huggingface.co/Qwen/Qwen2.5-7B-Instruct/blob/main/LICENSE)。
+
