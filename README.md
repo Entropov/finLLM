@@ -4,6 +4,8 @@
 
 > ⚠️ **免责声明**：本项目所有模型输出仅供学习研究参考，不构成任何投资建议。投资有风险，决策需谨慎。
 
+<img width="1704" height="903" alt="image" src="https://github.com/user-attachments/assets/a560085c-a996-4c2e-a154-c9664a892798" />
+
 ---
 
 ## 📋 项目概述
@@ -293,4 +295,5 @@ bash scripts/training/export_model.sh --format gguf --quant q4_k_m
 ## 📄 License
 
 本项目仅供学习研究使用。模型基于 Qwen2.5 系列，请遵守 [Qwen License](https://huggingface.co/Qwen/Qwen2.5-7B-Instruct/blob/main/LICENSE)。
+
 
