@@ -4,8 +4,6 @@
 
 > ⚠️ **免责声明**：本项目所有模型输出仅供学习研究参考，不构成任何投资建议。投资有风险，决策需谨慎。
 
-<img width="1704" height="903" alt="image" src="https://github.com/user-attachments/assets/a560085c-a996-4c2e-a154-c9664a892798" />
-
 ---
 
 ## 📋 项目概述
@@ -191,6 +189,56 @@ python scripts/inference/batch_inference.py \
   --model-path saves/qwen2.5-7b/merged
 ```
 
+### 7. RLHF 对齐训练（DPO）
+
+在 SFT 基础上执行 DPO 偏好优化，进一步提升模型专业性：
+
+```bash
+# 方式一: 一键完整流程（自动生成偏好数据 + DPO 训练）
+bash scripts/training/train_rlhf.sh
+
+# 方式二: 仅生成偏好数据（rules 模式，无需 API）
+python scripts/data_processing/synthesize_preference_data.py \
+  --input data/sft/fin_instruct_train.json \
+  --output data/rlhf/fin_preference_train.json \
+  --mode rules --max-samples 5000
+
+# 方式三: 高质量自动标注（需 LLM API）
+export SYNTH_API_KEY="your-key"
+python scripts/data_processing/synthesize_preference_data.py \
+  --mode both --max-samples 5000
+
+# 直接启动 DPO 训练（偏好数据已存在时）
+bash scripts/training/train_rlhf.sh --skip-data
+
+# DPO vs SFT 对比评估
+python scripts/evaluation/eval_rlhf_comparison.py \
+  --sft-adapter saves/qwen2.5-7b/lora/sft \
+  --dpo-adapter saves/qwen2.5-7b/lora/dpo \
+  --output logs/rlhf_comparison.md
+```
+
+> 详细说明参见 [docs/rlhf_guide.md](docs/rlhf_guide.md)
+
+### 8. RAG (检索增强生成)
+
+本项目支持通过检索增强生成（RAG）技术，将外部本地知识库引入推理过程，提升模型回答的准确性与专业性。
+
+```bash
+# 步骤 1: 准备知识库文档
+# 将您的 .txt 或 .md 格式的领域知识文档放入 data/knowledge 目录下
+
+# 步骤 2: 构建向量数据库
+# 将对文本进行切块并计算 Embedding，存储至 ChromaDB
+python scripts/rag/build_vector_db.py \
+  --data-dir data/knowledge \
+  --db-dir saves/chroma_db \
+  --model-name BAAI/bge-small-zh-v1.5
+
+# 步骤 3: 在线检索测试
+python scripts/rag/retriever.py
+```
+
 ---
 
 ## ⚙️ 训练配置详情
@@ -278,22 +326,6 @@ bash scripts/training/export_model.sh --format gguf --quant q4_k_m
 
 ---
 
-## 📝 开发路线
-
-- [x] 项目框架搭建
-- [x] 数据采集与清洗 Pipeline
-- [x] 指令合成与质量过滤
-- [x] QLoRA 训练与超参调优
-- [x] 基准评估 (FinEval)
-- [x] 任务级评估
-- [x] Gradio Demo 上线
-- [x] API 服务部署
-- [ ] GGUF 导出 + Ollama 集成
-
----
-
 ## 📄 License
 
 本项目仅供学习研究使用。模型基于 Qwen2.5 系列，请遵守 [Qwen License](https://huggingface.co/Qwen/Qwen2.5-7B-Instruct/blob/main/LICENSE)。
-
-
