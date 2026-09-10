@@ -17,7 +17,7 @@ set -e  # 遇到错误立即退出
 
 # ==================== 默认参数 ====================
 PROJECT_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-CONFIG_FILE="${PROJECT_ROOT}/configs/qwen2.5_7b_qlora_sft.yaml"
+CONFIG_FILE="${PROJECT_ROOT}/configs/qwen3_8b_qlora_sft.yaml"
 LOG_DIR="${PROJECT_ROOT}/logs"
 BACKGROUND=false
 
@@ -37,7 +37,7 @@ while [[ $# -gt 0 ]]; do
             echo ""
             echo "选项:"
             echo "  --background, -bg     后台运行训练"
-            echo "  --config, -c <path>   指定训练配置文件 (默认: configs/qwen2.5_7b_qlora_sft.yaml)"
+            echo "  --config, -c <path>   指定训练配置文件 (默认: configs/qwen3_8b_qlora_sft.yaml)"
             echo "  --help, -h            显示帮助信息"
             exit 0
             ;;
@@ -133,7 +133,7 @@ else
     info ""
     info "=============================================="
     info "训练完成！"
-    info "模型保存路径: saves/qwen2.5-7b/lora/sft"
+    info "模型保存路径: saves/qwen3-8b/lora/sft"
     info "日志文件: ${LOG_FILE}"
     info "=============================================="
 fi

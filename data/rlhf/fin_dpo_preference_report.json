@@ -1,0 +1,30 @@
+{
+  "total": 3858,
+  "train": 3665,
+  "eval": 193,
+  "task_distribution": {
+    "financial_qa": 2086,
+    "quant_strategy": 1,
+    "sentiment_analysis": 1732,
+    "stock_analysis": 39
+  },
+  "train_distribution": {
+    "financial_qa": 1982,
+    "quant_strategy": 1,
+    "sentiment_analysis": 1645,
+    "stock_analysis": 37
+  },
+  "eval_distribution": {
+    "financial_qa": 104,
+    "sentiment_analysis": 87,
+    "stock_analysis": 2
+  },
+  "policy": {
+    "stock_analysis": "dpo",
+    "quant_strategy": "grpo",
+    "financial_report": "dpo",
+    "sentiment_analysis": "grpo",
+    "financial_qa": "dpo",
+    "risk_assessment": "dpo"
+  }
+}

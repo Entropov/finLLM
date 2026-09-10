@@ -1,0 +1,29 @@
+{
+  "schema_version": "sft_v2.8_validator_aligned_preference.v1",
+  "samples": 637,
+  "by_task": {
+    "financial_qa": 201,
+    "quant_strategy": 270,
+    "stock_analysis": 166
+  },
+  "by_negative_type": {
+    "citation_drop": 113,
+    "json_or_artifact_format": 270,
+    "nonempty_thinking": 134,
+    "unsupported_forecast": 120
+  },
+  "excluded_source_rows": {
+    "by_task": {
+      "financial_qa": 69,
+      "stock_analysis": 104
+    },
+    "by_reason": {
+      "line_1:missing_citation": 69,
+      "stock prompt lacks MA5/MA20 evidence": 104,
+      "visible_evidence_missing": 69
+    }
+  },
+  "chosen_accept_rate": 1.0,
+  "rejected_false_accept_rate": 0.0,
+  "contract_gate_passed": true
+}

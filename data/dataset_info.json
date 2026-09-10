@@ -74,8 +74,8 @@
     }
   },
 
-  "fin_sentiment": {
-    "file_name": "sft/fin_sentiment.json",
+  "fin_sentiment_analysis": {
+    "file_name": "sft/fin_sentiment_analysis.json",
     "formatting": "sharegpt",
     "columns": {
       "messages": "conversations",
@@ -89,8 +89,8 @@
     }
   },
 
-  "fin_qa": {
-    "file_name": "sft/fin_qa.json",
+  "fin_financial_qa": {
+    "file_name": "sft/fin_financial_qa.json",
     "formatting": "sharegpt",
     "columns": {
       "messages": "conversations",
@@ -106,6 +106,480 @@
 
   "fin_risk_assessment": {
     "file_name": "sft/fin_risk_assessment.json",
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "conversations",
+      "system": "system"
+    },
+    "tags": {
+      "role_tag": "from",
+      "content_tag": "value",
+      "user_tag": "human",
+      "assistant_tag": "gpt"
+    }
+  },
+
+  "fin_preference_train": {
+    "file_name": "rlhf/fin_preference_train.json",
+    "formatting": "sharegpt",
+    "ranking": true,
+    "columns": {
+      "messages": "conversations",
+      "chosen": "chosen",
+      "rejected": "rejected",
+      "system": "system"
+    },
+    "tags": {
+      "role_tag": "from",
+      "content_tag": "value",
+      "user_tag": "human",
+      "assistant_tag": "gpt"
+    }
+  },
+
+  "fin_preference_eval": {
+    "file_name": "rlhf/fin_preference_eval.json",
+    "formatting": "sharegpt",
+    "ranking": true,
+    "columns": {
+      "messages": "conversations",
+      "chosen": "chosen",
+      "rejected": "rejected",
+      "system": "system"
+    },
+    "tags": {
+      "role_tag": "from",
+      "content_tag": "value",
+      "user_tag": "human",
+      "assistant_tag": "gpt"
+    }
+  },
+
+  "fin_dpo_preference_train": {
+    "file_name": "rlhf/fin_dpo_preference_train.json",
+    "formatting": "sharegpt",
+    "ranking": true,
+    "columns": {
+      "messages": "conversations",
+      "chosen": "chosen",
+      "rejected": "rejected",
+      "system": "system"
+    },
+    "tags": {
+      "role_tag": "from",
+      "content_tag": "value",
+      "user_tag": "human",
+      "assistant_tag": "gpt"
+    }
+  },
+
+  "fin_dpo_preference_eval": {
+    "file_name": "rlhf/fin_dpo_preference_eval.json",
+    "formatting": "sharegpt",
+    "ranking": true,
+    "columns": {
+      "messages": "conversations",
+      "chosen": "chosen",
+      "rejected": "rejected",
+      "system": "system"
+    },
+    "tags": {
+      "role_tag": "from",
+      "content_tag": "value",
+      "user_tag": "human",
+      "assistant_tag": "gpt"
+    }
+  },
+
+  "fin_grpo_prompts_train": {
+    "file_name": "rlhf/fin_grpo_prompts_train.json",
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "conversations",
+      "system": "system"
+    },
+    "tags": {
+      "role_tag": "from",
+      "content_tag": "value",
+      "user_tag": "human",
+      "assistant_tag": "gpt"
+    }
+  },
+
+  "fin_grpo_prompts_eval": {
+    "file_name": "rlhf/fin_grpo_prompts_eval.json",
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "conversations",
+      "system": "system"
+    },
+    "tags": {
+      "role_tag": "from",
+      "content_tag": "value",
+      "user_tag": "human",
+      "assistant_tag": "gpt"
+    }
+  },
+
+  "fin_agentic_sft_v2_1_answer_train": {
+    "file_name": "sft_v2_1/fin_agentic_sft_v2_1_answer_train.json",
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "conversations",
+      "system": "system"
+    },
+    "tags": {
+      "role_tag": "from",
+      "content_tag": "value",
+      "user_tag": "human",
+      "assistant_tag": "gpt"
+    }
+  },
+
+  "fin_agentic_sft_v2_1_answer_eval": {
+    "file_name": "sft_v2_1/fin_agentic_sft_v2_1_answer_eval.json",
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "conversations",
+      "system": "system"
+    },
+    "tags": {
+      "role_tag": "from",
+      "content_tag": "value",
+      "user_tag": "human",
+      "assistant_tag": "gpt"
+    }
+  },
+
+  "fin_agentic_sft_v2_1_policy_train": {
+    "file_name": "sft_v2_1/fin_agentic_sft_v2_1_policy_train.json",
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "conversations",
+      "system": "system"
+    },
+    "tags": {
+      "role_tag": "from",
+      "content_tag": "value",
+      "user_tag": "human",
+      "assistant_tag": "gpt"
+    }
+  },
+
+  "fin_agentic_sft_v2_1_policy_eval": {
+    "file_name": "sft_v2_1/fin_agentic_sft_v2_1_policy_eval.json",
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "conversations",
+      "system": "system"
+    },
+    "tags": {
+      "role_tag": "from",
+      "content_tag": "value",
+      "user_tag": "human",
+      "assistant_tag": "gpt"
+    }
+  },
+
+  "fin_agentic_sft_v2_train": {
+    "file_name": "sft_v2/fin_agentic_sft_v2_train.json",
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "conversations",
+      "system": "system"
+    },
+    "tags": {
+      "role_tag": "from",
+      "content_tag": "value",
+      "user_tag": "human",
+      "assistant_tag": "gpt"
+    }
+  },
+
+  "fin_agentic_sft_v2_eval": {
+    "file_name": "sft_v2/fin_agentic_sft_v2_eval.json",
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "conversations",
+      "system": "system"
+    },
+    "tags": {
+      "role_tag": "from",
+      "content_tag": "value",
+      "user_tag": "human",
+      "assistant_tag": "gpt"
+    }
+  },
+
+  "fin_agentic_sft_v2_2_answer_train": {
+    "file_name": "sft_v2_2/fin_agentic_sft_v2_2_answer_train.json",
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "conversations",
+      "system": "system"
+    },
+    "tags": {
+      "role_tag": "from",
+      "content_tag": "value",
+      "user_tag": "human",
+      "assistant_tag": "gpt"
+    }
+  },
+
+  "fin_agentic_sft_v2_2_answer_eval": {
+    "file_name": "sft_v2_2/fin_agentic_sft_v2_2_answer_eval.json",
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "conversations",
+      "system": "system"
+    },
+    "tags": {
+      "role_tag": "from",
+      "content_tag": "value",
+      "user_tag": "human",
+      "assistant_tag": "gpt"
+    }
+  },
+
+  "fin_agentic_sft_v2_3_answer_train": {
+    "file_name": "sft_v2_3/fin_agentic_sft_v2_3_answer_train.json",
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "conversations",
+      "system": "system"
+    },
+    "tags": {
+      "role_tag": "from",
+      "content_tag": "value",
+      "user_tag": "human",
+      "assistant_tag": "gpt"
+    }
+  },
+
+  "fin_agentic_sft_v2_3_answer_eval": {
+    "file_name": "sft_v2_3/fin_agentic_sft_v2_3_answer_eval.json",
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "conversations",
+      "system": "system"
+    },
+    "tags": {
+      "role_tag": "from",
+      "content_tag": "value",
+      "user_tag": "human",
+      "assistant_tag": "gpt"
+    }
+  },
+
+  "fin_agentic_sft_v2_4_answer_train": {
+    "file_name": "sft_v2_4/fin_agentic_sft_v2_4_answer_train.json",
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "conversations",
+      "system": "system"
+    },
+    "tags": {
+      "role_tag": "from",
+      "content_tag": "value",
+      "user_tag": "human",
+      "assistant_tag": "gpt"
+    }
+  },
+
+  "fin_agentic_sft_v2_4_answer_eval": {
+    "file_name": "sft_v2_4/fin_agentic_sft_v2_4_answer_eval.json",
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "conversations",
+      "system": "system"
+    },
+    "tags": {
+      "role_tag": "from",
+      "content_tag": "value",
+      "user_tag": "human",
+      "assistant_tag": "gpt"
+    }
+  },
+
+  "fin_agentic_sft_v2_4_hard_negative": {
+    "file_name": "rlhf/sft_v2_4_hard_negative_preference.json",
+    "formatting": "sharegpt",
+    "ranking": true,
+    "columns": {
+      "messages": "conversations",
+      "system": "system",
+      "chosen": "chosen",
+      "rejected": "rejected"
+    },
+    "tags": {
+      "role_tag": "from",
+      "content_tag": "value",
+      "user_tag": "human",
+      "assistant_tag": "gpt"
+    }
+  },
+
+  "fin_agentic_sft_v2_5_answer_train": {
+    "file_name": "sft_v2_5/fin_agentic_sft_v2_5_answer_train.json",
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "conversations",
+      "system": "system"
+    },
+    "tags": {
+      "role_tag": "from",
+      "content_tag": "value",
+      "user_tag": "human",
+      "assistant_tag": "gpt"
+    }
+  },
+
+  "fin_agentic_sft_v2_5_answer_eval": {
+    "file_name": "sft_v2_5/fin_agentic_sft_v2_5_answer_eval.json",
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "conversations",
+      "system": "system"
+    },
+    "tags": {
+      "role_tag": "from",
+      "content_tag": "value",
+      "user_tag": "human",
+      "assistant_tag": "gpt"
+    }
+  },
+
+  "fin_agentic_sft_v2_5_hard_negative": {
+    "file_name": "rlhf/sft_v2_5_hard_negative_preference.json",
+    "formatting": "sharegpt",
+    "ranking": true,
+    "columns": {
+      "messages": "conversations",
+      "system": "system",
+      "chosen": "chosen",
+      "rejected": "rejected"
+    },
+    "tags": {
+      "role_tag": "from",
+      "content_tag": "value",
+      "user_tag": "human",
+      "assistant_tag": "gpt"
+    }
+  },
+
+  "fin_agentic_sft_v2_6_answer_train": {
+    "file_name": "sft_v2_6/fin_agentic_sft_v2_6_answer_train.json",
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "conversations",
+      "system": "system"
+    },
+    "tags": {
+      "role_tag": "from",
+      "content_tag": "value",
+      "user_tag": "human",
+      "assistant_tag": "gpt"
+    }
+  },
+
+  "fin_agentic_sft_v2_6_answer_eval": {
+    "file_name": "sft_v2_6/fin_agentic_sft_v2_6_answer_eval.json",
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "conversations",
+      "system": "system"
+    },
+    "tags": {
+      "role_tag": "from",
+      "content_tag": "value",
+      "user_tag": "human",
+      "assistant_tag": "gpt"
+    }
+  },
+
+  "fin_agentic_sft_v2_6_hard_negative": {
+    "file_name": "rlhf/sft_v2_6_hard_negative_preference.json",
+    "formatting": "sharegpt",
+    "ranking": true,
+    "columns": {
+      "messages": "conversations",
+      "system": "system",
+      "chosen": "chosen",
+      "rejected": "rejected"
+    },
+    "tags": {
+      "role_tag": "from",
+      "content_tag": "value",
+      "user_tag": "human",
+      "assistant_tag": "gpt"
+    }
+  },
+
+  "fin_agentic_sft_v2_7_core_answer_train": {
+    "file_name": "sft_v2_7_core/fin_agentic_sft_v2_7_core_answer_train.json",
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "conversations",
+      "system": "system"
+    },
+    "tags": {
+      "role_tag": "from",
+      "content_tag": "value",
+      "user_tag": "human",
+      "assistant_tag": "gpt"
+    }
+  },
+
+  "fin_agentic_sft_v2_7_core_answer_eval": {
+    "file_name": "sft_v2_7_core/fin_agentic_sft_v2_7_core_answer_eval.json",
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "conversations",
+      "system": "system"
+    },
+    "tags": {
+      "role_tag": "from",
+      "content_tag": "value",
+      "user_tag": "human",
+      "assistant_tag": "gpt"
+    }
+  },
+
+  "fin_agentic_sft_v2_7_core_hard_negative": {
+    "file_name": "rlhf/sft_v2_7_core_hard_negative_preference.json",
+    "formatting": "sharegpt",
+    "ranking": true,
+    "columns": {
+      "messages": "conversations",
+      "system": "system",
+      "chosen": "chosen",
+      "rejected": "rejected"
+    },
+    "tags": {
+      "role_tag": "from",
+      "content_tag": "value",
+      "user_tag": "human",
+      "assistant_tag": "gpt"
+    }
+  },
+
+  "fin_agentic_sft_v2_8_2_core_answer_train": {
+    "file_name": "sft_v2_8_2_stock_contract/fin_agentic_sft_v2_8_2_core_answer_train.json",
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "conversations",
+      "system": "system"
+    },
+    "tags": {
+      "role_tag": "from",
+      "content_tag": "value",
+      "user_tag": "human",
+      "assistant_tag": "gpt"
+    }
+  },
+
+  "fin_agentic_sft_v2_8_2_core_answer_eval": {
+    "file_name": "sft_v2_8_2_stock_contract/fin_agentic_sft_v2_8_2_core_answer_eval.json",
     "formatting": "sharegpt",
     "columns": {
       "messages": "conversations",

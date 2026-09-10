@@ -133,6 +133,11 @@ def convert_alpaca_format(
     return results
 
 
+def convert_alpaca_to_sharegpt(data: list, system_prompt: str = "", task_type: str = "") -> list:
+    """兼容旧测试/调用的 Alpaca 转 ShareGPT 接口。"""
+    return convert_alpaca_format(data, system_prompt=system_prompt, task_type=task_type)
+
+
 def convert_fingpt_format(
     data: list,
     system_prompt: str = "",

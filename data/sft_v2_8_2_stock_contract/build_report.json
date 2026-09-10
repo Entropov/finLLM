@@ -1,0 +1,44 @@
+{
+  "schema_version": "sft_v2.8.2_stock_contract_repair.v1",
+  "components": {
+    "train": {
+      "samples": 810,
+      "by_task": {
+        "financial_qa": 270,
+        "quant_strategy": 270,
+        "stock_analysis": 270
+      },
+      "stock_repaired": {
+        "stock_analysis": 270
+      }
+    },
+    "eval": {
+      "samples": 36,
+      "by_task": {
+        "financial_qa": 16,
+        "quant_strategy": 11,
+        "stock_analysis": 9
+      },
+      "stock_repaired": {
+        "stock_analysis": 9
+      }
+    }
+  },
+  "stock_target_validator": {
+    "validated": 279,
+    "failed": 0
+  },
+  "preflight_gold_source_overlap_with_train": 0,
+  "preflight_gold_source_overlap_with_eval": 0,
+  "source_inputs": {
+    "train": {
+      "path": "/home/super/workspace/finLLM/data/sft_v2_7_core/fin_agentic_sft_v2_7_core_answer_train.json",
+      "sha256": "10cb9a5519830b616a29dfb5549259fbc680fc4e3df0a85179f4c429c44057dd"
+    },
+    "eval": {
+      "path": "/home/super/workspace/finLLM/data/sft_v2_7_core/fin_agentic_sft_v2_7_core_answer_eval.json",
+      "sha256": "28f25cf2426db9721c5efa5e15e5828d1ecfd31d3940ad2ad831049c3ecee1e0"
+    }
+  },
+  "release_note": "Training data is repair-only. This report does not turn the seen preflight into a release holdout."
+}

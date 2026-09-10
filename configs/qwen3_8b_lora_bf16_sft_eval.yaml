@@ -1,0 +1,32 @@
+# ============================================================
+# Fin-Instruct Qwen3-8B LoRA BF16 评估配置（不使用量化）
+# ============================================================
+
+# ==================== 模型配置 ====================
+model_name_or_path: Qwen/Qwen3-8B
+adapter_name_or_path: saves/qwen3-8b/lora-bf16/sft
+trust_remote_code: true
+
+# 注意: 本配置不设置 quantization_bit/quantization_method。
+
+# ==================== 微调方法 ====================
+stage: sft
+do_eval: true
+finetuning_type: lora
+
+# ==================== 数据集配置 ====================
+dataset: fin_instruct_eval
+dataset_dir: data
+template: qwen3_nothink
+cutoff_len: 4096
+preprocessing_num_workers: 16
+
+# ==================== 输出配置 ====================
+output_dir: saves/qwen3-8b/lora-bf16/eval
+overwrite_output_dir: true
+
+# ==================== 评估参数 ====================
+per_device_eval_batch_size: 1
+predict_with_generate: true
+max_new_tokens: 1024
+bf16: true

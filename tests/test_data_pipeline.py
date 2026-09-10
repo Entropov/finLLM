@@ -117,6 +117,8 @@ class TestSystemPrompts:
     def test_prompt_structure(self, system_prompts):
         """每个 prompt 包含必要字段。"""
         for task, data in system_prompts.items():
+            if task.startswith("_"):
+                continue
             assert "task_name" in data, f"{task} 缺少 task_name"
             assert "system_prompt" in data, f"{task} 缺少 system_prompt"
             assert len(data["system_prompt"]) > 50, f"{task} 的 prompt 太短"
@@ -124,6 +126,8 @@ class TestSystemPrompts:
     def test_prompt_contains_disclaimer(self, system_prompts):
         """每个 prompt 应包含免责声明。"""
         for task, data in system_prompts.items():
+            if task.startswith("_"):
+                continue
             prompt = data["system_prompt"]
             # 检查是否含有某种形式的免责提示
             has_disclaimer = any(
@@ -162,6 +166,37 @@ class TestDatasetInfo:
         """训练集和验证集定义存在。"""
         assert "fin_instruct_train" in dataset_info, "缺少训练集定义"
         assert "fin_instruct_eval" in dataset_info, "缺少验证集定义"
+
+    def test_task_dataset_names_match_sft_files(self, dataset_info):
+        """6 类任务的数据集注册命名与 SFT 文件命名一致。"""
+        expected = {
+            "fin_stock_analysis": "sft/fin_stock_analysis.json",
+            "fin_quant_strategy": "sft/fin_quant_strategy.json",
+            "fin_financial_report": "sft/fin_financial_report.json",
+            "fin_sentiment_analysis": "sft/fin_sentiment_analysis.json",
+            "fin_financial_qa": "sft/fin_financial_qa.json",
+            "fin_risk_assessment": "sft/fin_risk_assessment.json",
+        }
+        for name, file_name in expected.items():
+            assert name in dataset_info
+            assert dataset_info[name]["file_name"] == file_name
+
+    def test_rlvf_dataset_names_registered(self, dataset_info):
+        """RLVF DPO/GRPO 数据集注册存在且格式一致。"""
+        expected = {
+            "fin_dpo_preference_train": ("rlhf/fin_dpo_preference_train.json", True),
+            "fin_dpo_preference_eval": ("rlhf/fin_dpo_preference_eval.json", True),
+            "fin_grpo_prompts_train": ("rlhf/fin_grpo_prompts_train.json", False),
+            "fin_grpo_prompts_eval": ("rlhf/fin_grpo_prompts_eval.json", False),
+        }
+        for name, (file_name, ranking) in expected.items():
+            assert name in dataset_info
+            assert dataset_info[name]["file_name"] == file_name
+            assert dataset_info[name]["formatting"] == "sharegpt"
+            if ranking:
+                assert dataset_info[name]["ranking"] is True
+                assert "chosen" in dataset_info[name]["columns"]
+                assert "rejected" in dataset_info[name]["columns"]
 
 
 # ============================================================
@@ -210,7 +245,7 @@ class TestDataCleaning:
     def test_html_removal(self):
         """HTML 标签移除。"""
         from scripts.data_processing.clean_data import clean_text
-        text = "<p>这是一段<b>测试</b>文本</p>"
+        text = "<p>这是一段<b>测试</b>文本，用于验证HTML标签会被正确移除。</p>"
         cleaned = clean_text(text)
         assert "<p>" not in cleaned
         assert "<b>" not in cleaned
@@ -219,21 +254,21 @@ class TestDataCleaning:
     def test_url_removal(self):
         """URL 移除。"""
         from scripts.data_processing.clean_data import clean_text
-        text = "访问 https://www.example.com 了解详情"
+        text = "访问 https://www.example.com 了解详情，这是一段足够长的金融新闻测试文本。"
         cleaned = clean_text(text)
         assert "https://" not in cleaned
 
     def test_phone_masking(self):
         """手机号脱敏。"""
         from scripts.data_processing.clean_data import clean_text
-        text = "联系电话：13812345678"
+        text = "客户联系电话：13812345678，请在清洗后完成手机号脱敏并保留文本主体内容。"
         cleaned = clean_text(text)
         assert "13812345678" not in cleaned
 
     def test_id_card_masking(self):
         """身份证号脱敏。"""
         from scripts.data_processing.clean_data import clean_text
-        text = "身份证号：110101199001011234"
+        text = "客户身份证号：110101199001011234，请在清洗后完成身份证号脱敏并保留文本主体内容。"
         cleaned = clean_text(text)
         assert "110101199001011234" not in cleaned
 
@@ -274,6 +309,28 @@ class TestQualityFilter:
         ]
         deduped = deduplicate_exact(items)
         assert len(deduped) == 2
+
+    def test_sentiment_keeps_same_label_different_inputs(self):
+        """情感分类任务不应被回答近似去重压缩到标签级别。"""
+        from scripts.data_processing.quality_filter import deduplicate_data
+
+        items = [
+            {
+                "task_type": "sentiment_analysis",
+                "conversations": [
+                    {"from": "human", "value": "新闻A：公司盈利增长"},
+                    {"from": "gpt", "value": "积极"},
+                ],
+            },
+            {
+                "task_type": "sentiment_analysis",
+                "conversations": [
+                    {"from": "human", "value": "新闻B：公司回购股份"},
+                    {"from": "gpt", "value": "积极"},
+                ],
+            },
+        ]
+        assert len(deduplicate_data(items, task_type="sentiment_analysis")) == 2
 
 
 # ============================================================
@@ -329,7 +386,32 @@ class TestEvalMetrics:
         text = "贵州茅台的市盈率为30倍，净利润增长15%"
         keywords = ["市盈率", "净利润", "营收"]
         coverage = compute_keyword_coverage(text, keywords)
-        assert coverage == pytest.approx(2 / 3)
+        assert coverage == pytest.approx(0.6667)
+
+
+class TestMergeDatasets:
+    """测试任务分层合并逻辑。"""
+
+    def test_stratified_split_keeps_each_task_in_eval(self):
+        from scripts.data_processing.merge_datasets import TARGET_TASKS, split_train_eval_stratified
+
+        task_data = {}
+        for task in TARGET_TASKS:
+            task_data[task] = [
+                {
+                    "task_type": task,
+                    "conversations": [
+                        {"from": "human", "value": f"{task} question {i}"},
+                        {"from": "gpt", "value": f"{task} answer {i}"},
+                    ],
+                }
+                for i in range(20)
+            ]
+        train_data, eval_data = split_train_eval_stratified(task_data)
+        train_tasks = {item["task_type"] for item in train_data}
+        eval_tasks = {item["task_type"] for item in eval_data}
+        assert set(TARGET_TASKS).issubset(train_tasks)
+        assert set(TARGET_TASKS).issubset(eval_tasks)
 
 
 # ============================================================

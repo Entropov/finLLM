@@ -69,6 +69,11 @@ def rouge_l_score(reference: str, hypothesis: str) -> dict:
     }
 
 
+def compute_rouge_l(hypothesis: str, reference: str) -> float:
+    """兼容旧测试/调用的 ROUGE-L F1 接口。"""
+    return rouge_l_score(reference, hypothesis)["f1"]
+
+
 def bleu_score(reference: str, hypothesis: str, max_n: int = 4) -> float:
     """
     计算 BLEU 分数（简化版，不含 brevity penalty 的修正）。
@@ -144,6 +149,11 @@ def accuracy_score(y_true: list, y_pred: list) -> float:
     return round(correct / len(y_true), 4)
 
 
+def compute_accuracy(preds: list, refs: list) -> float:
+    """兼容旧测试/调用的准确率接口。"""
+    return accuracy_score(refs, preds)
+
+
 def f1_score(y_true: list, y_pred: list, average: str = "macro") -> dict:
     """
     计算 F1 分数。
@@ -206,6 +216,11 @@ def keyword_coverage(text: str, keywords: list) -> float:
         return 1.0
     hits = sum(1 for kw in keywords if kw in text)
     return round(hits / len(keywords), 4)
+
+
+def compute_keyword_coverage(text: str, keywords: list) -> float:
+    """兼容旧测试/调用的关键词覆盖接口。"""
+    return keyword_coverage(text, keywords)
 
 
 def code_syntax_check(code: str) -> dict:

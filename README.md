@@ -1,331 +1,246 @@
-# Fin-Instruct 🏦
+# finLLM
 
-基于 **Qwen2.5-7B-Instruct** + **LLaMA-Factory** 框架的金融大语言模型 QLoRA 微调项目，旨在辅助股票市场分析、量化策略研发与财报解读。
+基于 **Qwen3-8B**、**LLaMA-Factory** 与 **Agentic RAG** 的可审计金融大模型研究项目。项目覆盖金融指令数据构建、QLoRA/LoRA SFT、DPO/GRPO 实验入口、证据检索、Claim-to-Evidence 审计、可信评测，以及 OpenAI 兼容 API 和 Gradio 推理界面。
 
-> ⚠️ **免责声明**：本项目所有模型输出仅供学习研究参考，不构成任何投资建议。投资有风险，决策需谨慎。
+> **免责声明：** 本项目仍处于研究阶段，模型输出仅供学习和实验参考，不构成投资建议，也不应直接用于生产决策。
 
----
+## 当前状态
 
-## 📋 项目概述
+| 项目 | 状态 |
+|---|---|
+| 基座模型 | `Qwen/Qwen3-8B` |
+| 当前基准候选 | `sft-v2.7-core-selected` |
+| 核心任务 | `financial_qa`、`quant_strategy`、`stock_analysis` |
+| 训练方式 | QLoRA/LoRA SFT；提供 DPO 与 TRL-GRPO 实验入口 |
+| 推理方式 | Transformers、vLLM、基础 RAG、Agentic RAG |
+| 目标硬件 | 单卡 NVIDIA RTX 5090 32 GB |
+| Release Gate | **FAIL / HOLD** |
 
-| 项目 | 详情 |
-|------|------|
-| 基座模型 | [Qwen2.5-7B-Instruct](https://huggingface.co/Qwen/Qwen2.5-7B-Instruct) |
-| 微调框架 | [LLaMA-Factory](https://github.com/hiyouga/LLaMA-Factory) |
-| 微调方法 | QLoRA (4-bit NF4 量化 + LoRA) |
-| 目标 GPU | NVIDIA RTX 5090 32GB (单卡) |
-| 预估显存 | ~12 GB (QLoRA 4-bit) |
-| 数据格式 | ShareGPT |
+当前最后一个保留候选是 `sft-v2.7-core-selected`。v2.8.2 stock contract adapter 因端到端评测退化已被拒绝；在 source-disjoint final holdout、gold/verifier 一致性和 reward attack suite 完成前，**不应启动 DPO/GRPO，也不应将当前 GRPO 配置视为已验证效果**。完整结论见 [v2.9 阶段策略复盘](docs/finllm_v2_9_strategy_review.md)。
 
-### 支持的 6 大金融任务
+## 核心能力
 
-1. **📈 股票分析** — 个股基本面与技术面分析
-2. **🤖 量化策略** — 量化交易策略设计与代码实现
-3. **📊 财报解读** — 三大报表分析与财务指标解读
-4. **💬 情感分析** — 金融新闻与舆情情感判断
-5. **❓ 金融问答** — 金融知识百科问答
-6. **⚠️ 风险评估** — 信用风险与市场风险评估
+- 六类金融任务数据管线：股票分析、量化策略、财报解读、情感分析、金融问答与风险评估。
+- 面向三个核心任务的 SFT v2.x 数据构建、audit-weighted loss、checkpoint 选择与 paired regression。
+- 基础 RAG 与 LangGraph Agentic RAG，支持查询规划、证据归一化、Claim-to-Evidence 映射、验证、重试和轨迹落盘。
+- 非补偿式审计 hard gate，覆盖伪造引用、证据不相关、数值漂移、未来信息、合规违规和无效量化产物。
+- DPO 偏好数据、hard negative、TRL-GRPO 数据和训练脚手架。
+- Transformers/vLLM 推理、OpenAI 兼容 API、Gradio WebUI 和批量推理。
 
----
+## 项目结构
 
-## 🗂️ 项目结构
-
-```
+```text
 finLLM/
-├── configs/                          # 训练/推理配置
-│   ├── qwen2.5_7b_qlora_sft.yaml    # QLoRA SFT 训练配置
-│   ├── qwen2.5_7b_qlora_sft_eval.yaml # 评估配置
-│   ├── qwen2.5_7b_merge_lora.yaml   # LoRA 合并配置
-│   └── qwen2.5_7b_inference.yaml    # 推理配置
-├── data/
-│   ├── raw/                          # 原始数据（git 忽略）
-│   ├── processed/                    # 处理后数据（git 忽略）
-│   └── dataset_info.json            # LLaMA-Factory 数据集注册
-├── prompts/
-│   └── system_prompts.json          # 6 类任务 + 通用系统提示词
-├── scripts/
-│   ├── data_collection/             # 数据采集
-│   │   ├── download_open_datasets.py # 下载开源数据集
-│   │   ├── fetch_stock_data.py      # 获取股票行情数据
-│   │   ├── fetch_financial_reports.py # 获取上市公司财报
-│   │   └── fetch_news.py           # 获取金融新闻
-│   ├── data_processing/             # 数据处理
-│   │   ├── clean_data.py           # 数据清洗
-│   │   ├── synthesize_instructions.py # LLM 指令合成
-│   │   ├── convert_to_sharegpt.py  # 格式转换
-│   │   ├── quality_filter.py       # 质量过滤与去重
-│   │   └── merge_datasets.py       # 数据集合并与拆分
-│   ├── training/                    # 训练管理
-│   │   ├── train.sh                # 一键训练脚本
-│   │   ├── merge_lora.sh           # LoRA 权重合并
-│   │   └── export_model.sh         # 模型导出 (HF/GGUF)
-│   ├── evaluation/                  # 评估
-│   │   ├── eval_finance_bench.py   # FinEval 基准测试
-│   │   ├── eval_task_specific.py   # 任务级评估
-│   │   └── eval_metrics.py         # 评估指标工具库
-│   └── inference/                   # 推理与演示
-│       ├── api_server.py           # OpenAI 兼容 API 服务
-│       ├── chat_demo.py            # Gradio WebUI 交互
-│       └── batch_inference.py      # 批量推理
-├── saves/                           # 模型存储（git 忽略）
-├── tests/                           # 单元测试
-│   ├── test_data_pipeline.py       # 数据管道测试
-│   └── test_inference.py           # 推理模块测试
-├── requirements.txt                 # Python 依赖
-├── .gitignore
-└── README.md
+|-- configs/                 # Qwen2.5/Qwen3 训练、推理与 Agentic RAG 配置
+|-- data/
+|   |-- dataset_info.json    # LLaMA-Factory 数据集注册
+|   |-- evaluation/          # trusted、adversarial 与 preflight 评测集
+|   |-- knowledge/           # 本地金融知识库
+|   |-- rag/                 # audit schema、轨迹、偏好与评测集
+|   |-- rlhf/                # DPO/GRPO 数据
+|   `-- sft_v2*/             # 版本化 SFT 数据和构建报告
+|-- docs/                    # 研究报告、审计报告和实验指南
+|-- prompts/                 # 六类任务与通用系统提示词
+|-- scripts/
+|   |-- data_collection/     # 行情、财报、新闻与开源数据采集
+|   |-- data_processing/     # 清洗、合成、SFT/DPO/GRPO 数据构建
+|   |-- evaluation/          # 可信评测、selector、validator 与 reward 测试
+|   |-- inference/           # API、WebUI、批量推理和 vLLM 后端
+|   |-- rag/                 # 检索、Agent 编排、审计 schema 与 reward
+|   |-- rlhf/                # 对齐策略、自动标注和人工标注工具
+|   `-- training/            # SFT、DPO、GRPO、合并与导出入口
+|-- tests/                   # 数据、RAG、审计、推理和训练协议测试
+|-- requirements.txt
+`-- README.md
 ```
 
----
+模型权重、运行日志、缓存及大部分运行时生成数据不会作为源码提交。仓库中的研究数据和评测制品用于复现实验边界，不代表生产数据集。
 
-## 🚀 快速开始
+## 环境准备
 
-### 1. 环境准备
+推荐使用 Python 3.11、CUDA 环境和 24 GB 以上显存；完整 QLoRA 训练以 RTX 5090 32 GB 单卡为目标。
 
 ```bash
-# 克隆项目
-git clone <repo-url> finLLM && cd finLLM
+git clone https://github.com/Entropov/finLLM.git
+cd finLLM
 
-# 创建 conda 环境（推荐）
-conda create -n fin-instruct python=3.11 -y
-conda activate fin-instruct
-
-# 安装依赖
+conda create -n finllm python=3.11 -y
+conda activate finllm
 pip install -r requirements.txt
 
-# 安装 LLaMA-Factory（开发模式）
 git clone --depth 1 https://github.com/hiyouga/LLaMA-Factory.git
-cd LLaMA-Factory && pip install -e ".[torch,metrics]" && cd ..
+cd LLaMA-Factory
+pip install -e ".[torch,metrics]"
+cd ..
 ```
 
-### 2. 数据准备
+可选安装 FlashAttention：
 
 ```bash
-# 步骤 1: 下载开源数据集
-python scripts/data_collection/download_open_datasets.py
-
-# 步骤 2: 采集 A 股行情数据
-python scripts/data_collection/fetch_stock_data.py
-
-# 步骤 3: 采集上市公司财报
-python scripts/data_collection/fetch_financial_reports.py
-
-# 步骤 4: 采集金融新闻
-python scripts/data_collection/fetch_news.py
-
-# 步骤 5: 数据清洗
-python scripts/data_processing/clean_data.py
-
-# 步骤 6: 指令合成（需设置 API 密钥环境变量）
-export SYNTH_API_KEY="your-api-key"
-export SYNTH_API_BASE="https://api.openai.com/v1"
-export SYNTH_API_MODEL="gpt-4o-mini"
-python scripts/data_processing/synthesize_instructions.py
-
-# 步骤 7: 格式转换
-python scripts/data_processing/convert_to_sharegpt.py
-
-# 步骤 8: 质量过滤
-python scripts/data_processing/quality_filter.py
-
-# 步骤 9: 合并数据集并拆分训练/验证集
-python scripts/data_processing/merge_datasets.py
+pip install flash-attn --no-build-isolation
 ```
 
-### 3. 模型训练
+## 快速开始
+
+### 1. 基础 QLoRA SFT
 
 ```bash
-# 方式一: 使用封装脚本（推荐）
-bash scripts/training/train.sh
+llamafactory-cli train configs/qwen3_8b_qlora_sft.yaml
 
-# 方式二: 后台训练
-bash scripts/training/train.sh --background
-
-# 方式三: 直接使用 LLaMA-Factory CLI
-llamafactory-cli train configs/qwen2.5_7b_qlora_sft.yaml
-
-# 使用 TensorBoard 监控训练
-tensorboard --logdir saves/qwen2.5-7b/qlora-sft/runs --port 6006
-```
-
-### 4. LoRA 权重合并
-
-```bash
-# 合并 LoRA adapter 到基座模型
+# 评估与合并
+llamafactory-cli train configs/qwen3_8b_qlora_sft_eval.yaml
 bash scripts/training/merge_lora.sh
 ```
 
-### 5. 评估
+基础配置使用 Qwen3-8B、4-bit NF4、LoRA rank 16、4096 token 上下文和 bf16。版本化 SFT v2.x 属于研究流程，运行前应先阅读对应构建报告与 release gate。
+
+### 2. 当前 SFT 基准复现
 
 ```bash
-# FinEval 基准测试
-python scripts/evaluation/eval_finance_bench.py
+# 构建三项核心任务数据并检查数据 gate
+python scripts/data_processing/build_sft_v2_7_core_dataset.py
 
-# 任务级评估
-python scripts/evaluation/eval_task_specific.py \
-  --model-path Qwen/Qwen2.5-7B-Instruct \
-  --adapter-path saves/qwen2.5-7b/qlora-sft
+# 仅检查训练配置
+bash scripts/training/train_sft_v2_7_core.sh --skip-build --dry-run
 
-# 运行单元测试
-pytest tests/ -v
+# 启动训练
+bash scripts/training/train_sft_v2_7_core.sh --skip-build
 ```
 
-### 6. 推理与部署
+v2.7-core 的 checkpoint 选择、trusted/adversarial paired regression 和 selector replay 命令见 [Qwen3-8B 可审计金融 Agent 技术研究报告](docs/qwen3_8b_auditable_financial_agent_research.md)。v2.8.2 仅保留作失败实验与诊断记录，不是推荐训练目标。
+
+### 3. 构建本地知识库
 
 ```bash
-# Gradio 交互演示
-python scripts/inference/chat_demo.py \
-  --model-path saves/qwen2.5-7b/merged
-
-# OpenAI 兼容 API 服务
-python scripts/inference/api_server.py \
-  --model-path saves/qwen2.5-7b/merged \
-  --port 8000
-
-# 批量推理
-python scripts/inference/batch_inference.py \
-  --input questions.json \
-  --task stock_analysis \
-  --model-path saves/qwen2.5-7b/merged
-```
-
-### 7. RLHF 对齐训练（DPO）
-
-在 SFT 基础上执行 DPO 偏好优化，进一步提升模型专业性：
-
-```bash
-# 方式一: 一键完整流程（自动生成偏好数据 + DPO 训练）
-bash scripts/training/train_rlhf.sh
-
-# 方式二: 仅生成偏好数据（rules 模式，无需 API）
-python scripts/data_processing/synthesize_preference_data.py \
-  --input data/sft/fin_instruct_train.json \
-  --output data/rlhf/fin_preference_train.json \
-  --mode rules --max-samples 5000
-
-# 方式三: 高质量自动标注（需 LLM API）
-export SYNTH_API_KEY="your-key"
-python scripts/data_processing/synthesize_preference_data.py \
-  --mode both --max-samples 5000
-
-# 直接启动 DPO 训练（偏好数据已存在时）
-bash scripts/training/train_rlhf.sh --skip-data
-
-# DPO vs SFT 对比评估
-python scripts/evaluation/eval_rlhf_comparison.py \
-  --sft-adapter saves/qwen2.5-7b/lora/sft \
-  --dpo-adapter saves/qwen2.5-7b/lora/dpo \
-  --output logs/rlhf_comparison.md
-```
-
-> 详细说明参见 [docs/rlhf_guide.md](docs/rlhf_guide.md)
-
-### 8. RAG (检索增强生成)
-
-本项目支持通过检索增强生成（RAG）技术，将外部本地知识库引入推理过程，提升模型回答的准确性与专业性。
-
-```bash
-# 步骤 1: 准备知识库文档
-# 将您的 .txt 或 .md 格式的领域知识文档放入 data/knowledge 目录下
-
-# 步骤 2: 构建向量数据库
-# 将对文本进行切块并计算 Embedding，存储至 ChromaDB
 python scripts/rag/build_vector_db.py \
-  --data-dir data/knowledge \
-  --db-dir saves/chroma_db \
-  --model-name BAAI/bge-small-zh-v1.5
-
-# 步骤 3: 在线检索测试
-python scripts/rag/retriever.py
+  --data-dir data/knowledge/v2_train \
+  --db-dir saves/chroma_v2_train \
+  --chunk-strategy semantic
 ```
 
----
+### 4. 启动 Agentic RAG API
 
-## ⚙️ 训练配置详情
+```bash
+python scripts/inference/api_server.py \
+  --backend vllm \
+  --model-path Qwen/Qwen3-8B \
+  --adapter-path saves/qwen3-8b/lora/sft-v2.7-core-selected \
+  --enable-rag \
+  --rag-mode agentic \
+  --rag-agentic-config configs/rag_agentic.yaml \
+  --rag-db-dir saves/chroma_v2_train \
+  --port 8000
+```
 
-| 参数 | 值 |
-|------|-----|
-| LoRA Rank | 16 |
-| LoRA Alpha | 32 |
-| LoRA Target | all (全部线性层) |
-| LoRA Dropout | 0.05 |
-| 量化方式 | 4-bit NF4 (bitsandbytes) |
-| 序列长度 | 4096 |
-| Batch Size | 4 (per GPU) |
-| 梯度累积 | 4 (有效 batch = 16) |
-| 学习率 | 1e-4 |
-| 调度器 | cosine |
-| Warmup | 10% |
-| 训练轮次 | 3 |
-| 精度 | bf16 |
+使用 Transformers 后端时，将 `--backend vllm` 改为 `--backend transformers`。联网知识补充必须显式增加 `--enable-web-knowledge`；默认配置关闭 Web 检索。
 
----
-
-## 📊 数据来源
-
-| 数据源 | 类型 | 说明 |
-|--------|------|------|
-| [FinGPT](https://huggingface.co/FinGPT) | 开源数据集 | 金融情感、QA、关系抽取、标题分类 |
-| [DISC-FinLLM](https://huggingface.co/datasets/ShengbinYue/DISC-Law-SFT) | 开源数据集 | 约 246K 金融 SFT 数据 |
-| [FinEval](https://huggingface.co/datasets/SUFE-AIFLM-Lab/FinEval) | 基准数据 | 4,661 条金融考试题 |
-| [AKShare](https://akshare.akfamily.xyz/) | API 数据 | A 股行情、财报、新闻（免费） |
-| [Tushare](https://tushare.pro/) | API 数据 | 金融数据接口（需注册） |
-| LLM 合成 | 合成数据 | 基于大模型的指令合成 |
-
----
-
-## 🧪 API 使用示例
-
-启动 API 服务后，可直接使用 OpenAI SDK 调用：
+OpenAI SDK 调用示例：
 
 ```python
 from openai import OpenAI
 
-client = OpenAI(
-    base_url="http://localhost:8000/v1",
-    api_key="not-needed",
-)
-
+client = OpenAI(base_url="http://localhost:8000/v1", api_key="not-needed")
 response = client.chat.completions.create(
     model="fin-instruct",
     messages=[
-        {"role": "system", "content": "你是一位专业的金融分析师。"},
-        {"role": "user", "content": "请分析贵州茅台（600519）的投资价值。"},
+        {"role": "system", "content": "你是一位严谨的金融研究助手。"},
+        {"role": "user", "content": "基于可用证据分析贵州茅台的主要风险。"},
     ],
-    temperature=0.7,
-    stream=True,
+    temperature=0.2,
 )
-
-for chunk in response:
-    if chunk.choices[0].delta.content:
-        print(chunk.choices[0].delta.content, end="")
+print(response.choices[0].message.content)
 ```
 
----
-
-## 🔧 模型导出
+### 5. 启动 Gradio WebUI
 
 ```bash
-# 导出为 HuggingFace 格式
+python scripts/inference/chat_demo.py \
+  --model-path Qwen/Qwen3-8B \
+  --adapter-path saves/qwen3-8b/lora/sft-v2.7-core-selected \
+  --rag-mode agentic \
+  --rag-agentic-config configs/rag_agentic.yaml \
+  --rag-db-dir saves/chroma_v2_train
+```
+
+### 6. 审计与离线 RAG 评测
+
+```bash
+# 确定性 reward attack suite
+python scripts/evaluation/validate_agentic_rewards.py
+
+# 不初始化检索器的离线 Agent 流程检查
+python scripts/rag/eval_agentic_rag.py \
+  --mode agentic \
+  --task all \
+  --no-retriever \
+  --max-samples 20
+
+# 项目自有测试（排除 vendored LLaMA-Factory 与联网 FinEval 脚本）
+pytest tests/ -q
+```
+
+### 7. DPO/GRPO 实验入口
+
+以下入口仅用于后续受控实验。当前 Release Gate 为 FAIL，请勿把它们作为推荐训练流程直接启动。
+
+```bash
+# DPO 配置示例
+llamafactory-cli train configs/qwen3_8b_qlora_dpo.yaml
+
+# GRPO 仅校验配置、数据和依赖
+python scripts/training/train_grpo_trl.py \
+  --config configs/qwen3_8b_qlora_grpo_trl.yaml \
+  --dry-run
+```
+
+当前 GRPO reward 仍是 task/format/length 的脚手架，尚未完整消费 `reward_v2` trajectory。方法边界和准入条件见 [RLVF 使用指南](docs/rlhf_guide.md) 与 [v2.9 阶段策略复盘](docs/finllm_v2_9_strategy_review.md)。
+
+## 审计契约
+
+核心实现位于：
+
+- `scripts/rag/audit_schema.py`：Evidence、Claim、Calculation 与轨迹数据结构。
+- `data/rag/audit_v2.schema.json`：可交换 JSON Schema。
+- `scripts/rag/reward_v2.py`：先 hard gate、后软分数的非补偿式奖励。
+- `scripts/rag/quant_protocol.py`：受限 quant action 与确定性 renderer。
+- `scripts/evaluation/task_aware_verifier_v2_7_core.py`：三项核心任务 verifier。
+
+Evidence ID、来源、发布时间、生效时间、抓取时间、原文引用和内容哈希均参与审计。任何 hard gate 失败的轨迹奖励为 0，市场反馈上限为 `0.05`，不能补偿事实、引用或合规失败。
+
+## 关键研究结果
+
+在三任务 v2.7-core seen regression 中，选定 checkpoint 相对 Qwen3-8B 基座取得以下结果：
+
+| 指标 | Trusted | Adversarial |
+|---|---:|---:|
+| E2E@1 | 0.5733 | 0.5933 |
+| E2E@8 | 0.9000 | 0.8600 |
+| Audit@1 | 0.7400 | 0.8600 |
+| Audit@8 | 0.9600 | 0.9733 |
+| Mean primary delta | +0.0804 | +0.0814 |
+
+这些结果证明 SFT 改善了结构、引用与量化任务稳定性，但 Audit@1 尚未达到 95% 目标，QA 和 stock_analysis 仍存在任务级回退。v2.8.2 的全量 stock target rewrite 又使 seen preflight E2E@8 从 `0.68` 降至 `0.28`，因此当前总体结论仍是 FAIL / HOLD。
+
+## 文档索引
+
+- [Qwen3-8B 可审计金融 Agent 技术研究报告](docs/qwen3_8b_auditable_financial_agent_research.md)：系统设计、实验台账、结果与复现命令。
+- [v2.9 阶段策略复盘](docs/finllm_v2_9_strategy_review.md)：当前结论、数据谱系、SFT 边界与 GRPO 准入条件。
+- [Financial Agent Repository Audit](docs/financial_agent_audit.md)：仓库能力、缺口和 Financial Agent Harness 扩展边界。
+- [Agentic SFT v2](docs/agentic_sft_v2.md)：轨迹采集、数据 gate 与 trusted evaluation。
+- [Validator Calibration Report](docs/finllm_v2_8_validator_calibration_report.md)：validator 混淆矩阵与 stock blocker。
+- [Stock Contract Repair Report](docs/finllm_v2_8_2_stock_contract_repair_report.md)：v2.8.2 失败实验与 adapter 拒绝依据。
+- [RLVF 使用指南](docs/rlhf_guide.md)：DPO/GRPO 数据、配置与验证入口。
+
+## 模型导出
+
+```bash
+# Hugging Face 格式
 bash scripts/training/export_model.sh --format hf
 
-# 导出为 GGUF 格式（用于 llama.cpp / Ollama）
+# GGUF（用于 llama.cpp / Ollama）
 bash scripts/training/export_model.sh --format gguf --quant q4_k_m
 ```
 
----
+## License
 
-## 🖥️ 硬件要求
-
-| 阶段 | 最低要求 | 推荐配置 |
-|------|---------|---------|
-| QLoRA 训练 | 16GB VRAM | RTX 5090 32GB |
-| 4-bit 推理 | 8GB VRAM  | 16GB+ VRAM |
-| 全精度推理 | 16GB VRAM | 24GB+ VRAM |
-| 数据处理 | 16GB RAM  | 32GB+ RAM |
-
----
-
-## 📄 License
-
-本项目仅供学习研究使用。模型基于 Qwen2.5 系列，请遵守 [Qwen License](https://huggingface.co/Qwen/Qwen2.5-7B-Instruct/blob/main/LICENSE)。
+本项目仅供学习和研究使用。使用模型与训练框架时，请同时遵守 [Qwen License](https://huggingface.co/Qwen/Qwen3-8B/blob/main/LICENSE) 和 [LLaMA-Factory License](https://github.com/hiyouga/LLaMA-Factory/blob/main/LICENSE)。

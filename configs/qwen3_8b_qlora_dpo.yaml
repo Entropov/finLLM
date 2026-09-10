@@ -1,0 +1,76 @@
+# ============================================================
+# Fin-Instruct QLoRA DPO 训练配置
+# 基于 Qwen3-8B SFT checkpoint 进行 DPO 偏好对齐
+# 硬件目标: 单卡 RTX 5090 32GB
+# 框架: LLaMA-Factory
+# ============================================================
+# 使用方式:
+#   llamafactory-cli train configs/qwen3_8b_qlora_dpo.yaml
+# ============================================================
+
+# ==================== 模型配置 ====================
+model_name_or_path: Qwen/Qwen3-8B
+trust_remote_code: true
+
+# 加载 SFT 阶段训练好的 LoRA 权重作为 DPO 起点
+adapter_name_or_path: saves/qwen3-8b/lora/sft/checkpoint-4000
+
+# ==================== QLoRA 量化配置 ====================
+quantization_bit: 4
+quantization_method: bitsandbytes
+
+# ==================== DPO 训练方法 ====================
+stage: dpo
+do_train: true
+finetuning_type: lora
+lora_rank: 16
+lora_alpha: 32
+lora_dropout: 0.05
+lora_target: all
+
+# DPO 核心超参数
+pref_beta: 0.1
+pref_loss: sigmoid
+
+# ==================== 数据集配置 ====================
+dataset: fin_dpo_preference_train
+dataset_dir: data
+template: qwen3_nothink
+cutoff_len: 2048
+max_samples: 10000
+overwrite_cache: true
+preprocessing_num_workers: 8
+dataloader_num_workers: 2
+
+# ==================== 输出配置 ====================
+output_dir: saves/qwen3-8b/lora/dpo
+logging_steps: 10
+save_steps: 200
+save_total_limit: 3
+plot_loss: true
+overwrite_output_dir: true
+report_to: tensorboard
+
+# ==================== 训练超参数 ====================
+per_device_train_batch_size: 1
+gradient_accumulation_steps: 16
+learning_rate: 5.0e-6
+num_train_epochs: 3.0
+lr_scheduler_type: cosine
+warmup_ratio: 0.05
+weight_decay: 0.01
+max_grad_norm: 1.0
+bf16: true
+ddp_timeout: 180000000
+seed: 42
+
+# ==================== 验证配置 ====================
+val_size: 0.05
+per_device_eval_batch_size: 1
+eval_strategy: steps
+eval_steps: 200
+load_best_model_at_end: true
+
+# ==================== 可选加速 ====================
+# flash_attn: fa2
+# enable_liger_kernel: true

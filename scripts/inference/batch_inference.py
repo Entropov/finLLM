@@ -18,6 +18,7 @@
 
 import json
 import logging
+import sys
 from pathlib import Path
 from typing import Optional
 
@@ -39,6 +40,14 @@ logger = logging.getLogger(__name__)
 # 路径常量
 # ============================================================
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+sys.path.append(str(PROJECT_ROOT))
+from scripts.inference.chat_template import apply_chat_template
+from scripts.inference.vllm_backend import (
+    VLLMBatchEngine,
+    VLLMEngineConfig,
+    validate_vllm_model_options,
+)
+
 PROMPTS_FILE = PROJECT_ROOT / "prompts" / "system_prompts.json"
 RESULTS_DIR = PROJECT_ROOT / "saves" / "batch_results"
 
@@ -169,9 +178,7 @@ def batch_generate(
         ]
 
         try:
-            text = tokenizer.apply_chat_template(
-                messages, tokenize=False, add_generation_prompt=True
-            )
+            text = apply_chat_template(messages=messages, tokenizer=tokenizer)
             inputs = tokenizer(text, return_tensors="pt").to(model.device)
             input_length = inputs["input_ids"].shape[-1]
 
@@ -203,6 +210,57 @@ def batch_generate(
     return results
 
 
+def batch_generate_vllm(
+    engine: VLLMBatchEngine,
+    tokenizer,
+    questions: list,
+    system_prompt: str = "",
+    max_new_tokens: int = 2048,
+    temperature: float = 0.7,
+    top_p: float = 0.9,
+) -> list:
+    """使用 vLLM 一次提交 prompt 列表进行批量推理。"""
+    results = [None] * len(questions)
+    pending_items = []
+    pending_indexes = []
+    prompts = []
+
+    for index, item in enumerate(questions):
+        question = item.get("question", "")
+        if not question:
+            results[index] = {**item, "answer": "", "error": "问题为空"}
+            continue
+
+        sp = item.get("system_prompt", system_prompt)
+        messages = [
+            {"role": "system", "content": sp},
+            {"role": "user", "content": question},
+        ]
+        prompts.append(apply_chat_template(messages=messages, tokenizer=tokenizer))
+        pending_items.append(item)
+        pending_indexes.append(index)
+
+    if not prompts:
+        return [result for result in results if result is not None]
+
+    outputs = engine.generate(
+        prompts,
+        max_tokens=max_new_tokens,
+        temperature=temperature,
+        top_p=top_p,
+        repetition_penalty=1.1,
+    )
+    for index, item, output in zip(pending_indexes, pending_items, outputs):
+        results[index] = {
+            **item,
+            "answer": output.get("text", ""),
+            "input_tokens": len(output.get("prompt_token_ids", [])),
+            "output_tokens": len(output.get("output_token_ids", [])),
+        }
+
+    return [result for result in results if result is not None]
+
+
 def save_results(results: list, output_file: str) -> None:
     """
     保存推理结果。
@@ -232,11 +290,19 @@ def save_results(results: list, output_file: str) -> None:
 def run_batch_inference(
     input_file: str,
     output_file: Optional[str] = None,
-    model_path: str = "Qwen/Qwen2.5-7B-Instruct",
+    model_path: str = "saves/qwen3-8b/merged",
     adapter_path: Optional[str] = None,
     task: str = "general",
     max_new_tokens: int = 2048,
     temperature: float = 0.7,
+    top_p: float = 0.9,
+    backend: str = "vllm",
+    dtype: str = "bfloat16",
+    tensor_parallel_size: int = 1,
+    gpu_memory_utilization: float = 0.90,
+    max_model_len: Optional[int] = None,
+    vllm_quantization: Optional[str] = None,
+    vllm_load_format: Optional[str] = None,
 ) -> None:
     """
     运行批量推理完整流程。
@@ -263,18 +329,44 @@ def run_batch_inference(
     system_prompt = prompts.get(task, prompts.get("general", ""))
     logger.info(f"任务类型: {task}")
 
-    # 3. 加载模型
-    model, tokenizer = load_model(model_path, adapter_path)
+    # 3. 加载模型并推理
+    if backend == "vllm":
+        from transformers import AutoTokenizer
 
-    # 4. 批量推理
-    results = batch_generate(
-        model=model,
-        tokenizer=tokenizer,
-        questions=questions,
-        system_prompt=system_prompt,
-        max_new_tokens=max_new_tokens,
-        temperature=temperature,
-    )
+        validate_vllm_model_options(adapter_path)
+        logger.info(f"加载 vLLM 模型: {model_path}")
+        tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+        engine = VLLMBatchEngine(
+            VLLMEngineConfig(
+                model_path=model_path,
+                dtype=dtype,
+                tensor_parallel_size=tensor_parallel_size,
+                gpu_memory_utilization=gpu_memory_utilization,
+                max_model_len=max_model_len,
+                quantization=vllm_quantization,
+                load_format=vllm_load_format,
+            )
+        )
+        results = batch_generate_vllm(
+            engine=engine,
+            tokenizer=tokenizer,
+            questions=questions,
+            system_prompt=system_prompt,
+            max_new_tokens=max_new_tokens,
+            temperature=temperature,
+            top_p=top_p,
+        )
+    else:
+        model, tokenizer = load_model(model_path, adapter_path)
+        results = batch_generate(
+            model=model,
+            tokenizer=tokenizer,
+            questions=questions,
+            system_prompt=system_prompt,
+            max_new_tokens=max_new_tokens,
+            temperature=temperature,
+            top_p=top_p,
+        )
 
     # 5. 保存结果
     if output_file is None:
@@ -304,6 +396,13 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Fin-Instruct 批量推理")
     parser.add_argument(
+        "--backend",
+        type=str,
+        choices=["vllm", "transformers"],
+        default="vllm",
+        help="推理后端 (默认: vllm)",
+    )
+    parser.add_argument(
         "--input", "-i",
         type=str,
         required=True,
@@ -318,7 +417,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--model-path",
         type=str,
-        default="Qwen/Qwen2.5-7B-Instruct",
+        default="saves/qwen3-8b/merged",
         help="模型路径",
     )
     parser.add_argument(
@@ -346,6 +445,48 @@ if __name__ == "__main__":
         default=0.7,
         help="温度系数",
     )
+    parser.add_argument(
+        "--top-p",
+        type=float,
+        default=0.9,
+        help="Top-P 核采样概率",
+    )
+    parser.add_argument(
+        "--dtype",
+        type=str,
+        default="bfloat16",
+        help="vLLM dtype (默认: bfloat16)",
+    )
+    parser.add_argument(
+        "--tensor-parallel-size",
+        type=int,
+        default=1,
+        help="vLLM tensor parallel size (默认: 1)",
+    )
+    parser.add_argument(
+        "--gpu-memory-utilization",
+        type=float,
+        default=0.90,
+        help="vLLM GPU 显存利用率 (默认: 0.90)",
+    )
+    parser.add_argument(
+        "--max-model-len",
+        type=int,
+        default=None,
+        help="vLLM 最大上下文长度",
+    )
+    parser.add_argument(
+        "--vllm-quantization",
+        type=str,
+        default=None,
+        help="vLLM 量化方式，例如 bitsandbytes",
+    )
+    parser.add_argument(
+        "--vllm-load-format",
+        type=str,
+        default=None,
+        help="vLLM 权重加载格式，例如 bitsandbytes",
+    )
     args = parser.parse_args()
 
     run_batch_inference(
@@ -356,4 +497,12 @@ if __name__ == "__main__":
         task=args.task,
         max_new_tokens=args.max_new_tokens,
         temperature=args.temperature,
+        top_p=args.top_p,
+        backend=args.backend,
+        dtype=args.dtype,
+        tensor_parallel_size=args.tensor_parallel_size,
+        gpu_memory_utilization=args.gpu_memory_utilization,
+        max_model_len=args.max_model_len,
+        vllm_quantization=args.vllm_quantization,
+        vllm_load_format=args.vllm_load_format,
     )

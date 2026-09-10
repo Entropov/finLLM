@@ -16,8 +16,8 @@ set -e
 # ==================== 默认参数 ====================
 PROJECT_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 EXPORT_FORMAT="hf"  # hf 或 gguf
-MERGED_MODEL_DIR="${PROJECT_ROOT}/saves/qwen2.5-7b/merged"
-EXPORT_DIR="${PROJECT_ROOT}/saves/qwen2.5-7b/exported"
+MERGED_MODEL_DIR="${PROJECT_ROOT}/saves/qwen3-8b/merged"
+EXPORT_DIR="${PROJECT_ROOT}/saves/qwen3-8b/exported"
 
 # 解析参数
 while [[ $# -gt 0 ]]; do
@@ -39,7 +39,7 @@ while [[ $# -gt 0 ]]; do
             echo ""
             echo "选项:"
             echo "  --format, -f <hf|gguf>  导出格式 (默认: hf)"
-            echo "  --input, -i <path>      输入模型路径 (默认: saves/qwen2.5-7b/merged)"
+            echo "  --input, -i <path>      输入模型路径 (默认: saves/qwen3-8b/merged)"
             echo "  --output, -o <path>     导出输出路径"
             exit 0
             ;;
@@ -100,7 +100,7 @@ case "${EXPORT_FORMAT}" in
         fi
         python3 "${PROJECT_ROOT}/llama.cpp/convert_hf_to_gguf.py" \
             "${MERGED_MODEL_DIR}" \
-            --outfile "${EXPORT_DIR}/fin-instruct-qwen2.5-7b.gguf" \
+            --outfile "${EXPORT_DIR}/fin-instruct-qwen3-8b.gguf" \
             --outtype f16
         info "GGUF 格式导出完成"
         ;;

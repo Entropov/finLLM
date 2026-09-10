@@ -1,0 +1,121 @@
+{
+  "schema_version": "sft_v2.2",
+  "profile": "concise_audit_first_answer_repair",
+  "source_files": {
+    "train": "fin_agentic_sft_v2_1_answer_train.json",
+    "eval": "fin_agentic_sft_v2_1_answer_eval.json"
+  },
+  "rejections": {
+    "train": {
+      "input": 815,
+      "accepted": 743,
+      "rejected": 72,
+      "reasons": {
+        "incomplete_task_evidence": 72
+      }
+    },
+    "eval": {
+      "input": 108,
+      "accepted": 101,
+      "rejected": 7,
+      "reasons": {
+        "incomplete_task_evidence": 7
+      }
+    }
+  },
+  "oversampling": {
+    "strategy": "balance_to_largest_task",
+    "added_by_task": {
+      "financial_qa": 0,
+      "financial_report": 33,
+      "quant_strategy": 33,
+      "risk_assessment": 20,
+      "sentiment_analysis": 127,
+      "stock_analysis": 112
+    }
+  },
+  "components": {
+    "train": {
+      "samples": 1068,
+      "unique_groups": 743,
+      "by_task": {
+        "financial_qa": 178,
+        "financial_report": 178,
+        "quant_strategy": 178,
+        "risk_assessment": 178,
+        "sentiment_analysis": 178,
+        "stock_analysis": 178
+      },
+      "unique_groups_by_task": {
+        "financial_qa": 178,
+        "financial_report": 145,
+        "quant_strategy": 145,
+        "risk_assessment": 158,
+        "sentiment_analysis": 51,
+        "stock_analysis": 66
+      },
+      "audit_hard_pass_rate": 1.0,
+      "cyrillic_targets": 0,
+      "thinking_targets": 890,
+      "max_target_chars": 2298,
+      "mean_target_chars": 1070.5,
+      "fingerprint": "53b532bc02c5338d1cf18319f671acc2d06097c828321c44ef25f5f022f6446e"
+    },
+    "eval": {
+      "samples": 101,
+      "unique_groups": 101,
+      "by_task": {
+        "financial_qa": 22,
+        "financial_report": 21,
+        "quant_strategy": 18,
+        "risk_assessment": 19,
+        "sentiment_analysis": 9,
+        "stock_analysis": 12
+      },
+      "unique_groups_by_task": {
+        "financial_qa": 22,
+        "financial_report": 21,
+        "quant_strategy": 18,
+        "risk_assessment": 19,
+        "sentiment_analysis": 9,
+        "stock_analysis": 12
+      },
+      "audit_hard_pass_rate": 1.0,
+      "cyrillic_targets": 0,
+      "thinking_targets": 92,
+      "max_target_chars": 2290,
+      "mean_target_chars": 1089.0,
+      "fingerprint": "6dd5475fe1c4712de7c590971ed0fbf34c684c1c1ae73540c817ff7563697129"
+    }
+  },
+  "heldout_overlap": {
+    "question_overlap": 0,
+    "source_identity_overlap": 0
+  },
+  "frozen_artifacts": {
+    "data/evaluation/trusted_finance_v2.json": {
+      "expected_sha256": "ed9d55cfff9accde8b4eb6d761987c0dc7ad67e04abc505a6e570f227f971258",
+      "current_sha256": "ed9d55cfff9accde8b4eb6d761987c0dc7ad67e04abc505a6e570f227f971258",
+      "matches": true
+    },
+    "data/evaluation/v2_split_manifest.json": {
+      "expected_sha256": "7c3dc793d79681986db59b43316c7b8174e4ed280debfdd3b1301130063362ed",
+      "current_sha256": "7c3dc793d79681986db59b43316c7b8174e4ed280debfdd3b1301130063362ed",
+      "matches": true
+    }
+  },
+  "release_gate": {
+    "derived_only_from_v2_1_splits": true,
+    "train_eval_group_disjoint": true,
+    "minimum_train_unique_groups_per_task": true,
+    "minimum_eval_unique_groups_per_task": true,
+    "balanced_training_samples": true,
+    "all_targets_audit_hard_pass": true,
+    "no_cyrillic_targets": true,
+    "bounded_target_length": true,
+    "heldout_question_disjoint": true,
+    "heldout_source_disjoint": true,
+    "frozen_heldout_artifacts_unchanged": true
+  },
+  "release_gate_passed": true
+}

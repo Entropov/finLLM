@@ -1,0 +1,151 @@
+{
+  "schema_version": "sft_v2.3",
+  "profile": "atomic_claim_exact_numeric_quant_safe",
+  "source_files": {
+    "train": "fin_agentic_sft_v2_1_answer_train.json",
+    "adversarial_source": "fin_agentic_sft_v2_1_answer_eval.json"
+  },
+  "rejections": {
+    "training_source": {
+      "input": 815,
+      "accepted": 743,
+      "rejected": 72,
+      "reasons": {
+        "incomplete_task_evidence": 72
+      }
+    },
+    "adversarial_source": {
+      "sentiment_analysis": 5,
+      "stock_analysis": 2
+    }
+  },
+  "oversampling": {
+    "strategy": "balance_after_source_group_holdout",
+    "added_by_task": {
+      "financial_qa": 0,
+      "financial_report": 32,
+      "quant_strategy": 28,
+      "risk_assessment": 17,
+      "sentiment_analysis": 119,
+      "stock_analysis": 105
+    }
+  },
+  "components": {
+    "train": {
+      "samples": 972,
+      "unique_source_groups": 46,
+      "source_groups_by_task": {
+        "financial_qa": 46,
+        "financial_report": 46,
+        "quant_strategy": 46,
+        "risk_assessment": 46,
+        "sentiment_analysis": 32,
+        "stock_analysis": 38
+      },
+      "by_task": {
+        "financial_qa": 162,
+        "financial_report": 162,
+        "quant_strategy": 162,
+        "risk_assessment": 162,
+        "sentiment_analysis": 162,
+        "stock_analysis": 162
+      },
+      "challenge_profiles": {
+        "failure_targeted": 506,
+        "standard": 466
+      },
+      "audit_hard_pass_rate": 1.0,
+      "exact_numeric_rate": 1.0,
+      "citation_coverage_rate": 1.0,
+      "max_target_chars": 2437,
+      "mean_target_chars": 994.1,
+      "cyrillic_targets": 0
+    },
+    "eval": {
+      "samples": 72,
+      "unique_source_groups": 4,
+      "source_groups_by_task": {
+        "financial_qa": 4,
+        "financial_report": 4,
+        "quant_strategy": 4,
+        "risk_assessment": 4,
+        "sentiment_analysis": 4,
+        "stock_analysis": 4
+      },
+      "by_task": {
+        "financial_qa": 16,
+        "financial_report": 15,
+        "quant_strategy": 11,
+        "risk_assessment": 13,
+        "sentiment_analysis": 8,
+        "stock_analysis": 9
+      },
+      "challenge_profiles": {
+        "failure_targeted": 36,
+        "standard": 36
+      },
+      "audit_hard_pass_rate": 1.0,
+      "exact_numeric_rate": 1.0,
+      "citation_coverage_rate": 1.0,
+      "max_target_chars": 2436,
+      "mean_target_chars": 980.6,
+      "cyrillic_targets": 0
+    }
+  },
+  "adversarial": {
+    "samples": 300,
+    "by_task": {
+      "financial_qa": 50,
+      "financial_report": 50,
+      "quant_strategy": 50,
+      "risk_assessment": 50,
+      "sentiment_analysis": 50,
+      "stock_analysis": 50
+    },
+    "unique_questions_by_task": {
+      "financial_qa": 50,
+      "financial_report": 50,
+      "quant_strategy": 50,
+      "risk_assessment": 50,
+      "sentiment_analysis": 50,
+      "stock_analysis": 50
+    },
+    "source_groups": 6,
+    "training_source_identity_overlap": 0,
+    "internal_eval_source_identity_overlap": 0,
+    "trusted_source_identity_overlap": 0
+  },
+  "frozen_artifacts": {
+    "data/evaluation/trusted_finance_v2.json": {
+      "expected_sha256": "ed9d55cfff9accde8b4eb6d761987c0dc7ad67e04abc505a6e570f227f971258",
+      "current_sha256": "ed9d55cfff9accde8b4eb6d761987c0dc7ad67e04abc505a6e570f227f971258",
+      "matches": true
+    },
+    "data/evaluation/v2_split_manifest.json": {
+      "expected_sha256": "7c3dc793d79681986db59b43316c7b8174e4ed280debfdd3b1301130063362ed",
+      "current_sha256": "7c3dc793d79681986db59b43316c7b8174e4ed280debfdd3b1301130063362ed",
+      "matches": true
+    }
+  },
+  "release_gate": {
+    "derived_only_from_v2_1_train": true,
+    "train_eval_source_group_disjoint": true,
+    "train_eval_source_identity_disjoint": true,
+    "minimum_train_source_groups_per_task": true,
+    "minimum_eval_samples_per_task": true,
+    "balanced_training_samples": true,
+    "all_targets_audit_hard_pass": true,
+    "all_targets_exact_numeric": true,
+    "all_targets_full_citation_coverage": true,
+    "bounded_target_length": true,
+    "no_cyrillic_targets": true,
+    "adversarial_300_balanced": true,
+    "adversarial_unique_questions": true,
+    "adversarial_source_independent": true,
+    "adversarial_not_checkpoint_eval": true,
+    "trusted_question_disjoint": true,
+    "trusted_source_disjoint": true,
+    "frozen_trusted_artifacts_unchanged": true
+  },
+  "release_gate_passed": true
+}

@@ -1,0 +1,69 @@
+# ============================================================
+# Fin-Instruct TRL GRPO QLoRA config
+# 从 DPO adapter 继续做规则可验证任务的 GRPO 对齐
+# 入口: python scripts/training/train_grpo_trl.py --config configs/qwen3_8b_qlora_grpo_trl.yaml
+# ============================================================
+
+model_name_or_path: Qwen/Qwen3-8B
+adapter_name_or_path: saves/qwen3-8b/lora/dpo
+trust_remote_code: true
+
+train_file: data/rlhf/fin_grpo_prompts_train.json
+eval_file: data/rlhf/fin_grpo_prompts_eval.json
+output_dir: saves/qwen3-8b/lora/rlvf
+
+# QLoRA / PEFT
+load_in_4bit: true
+bnb_4bit_quant_type: nf4
+lora_rank: 16
+lora_alpha: 32
+lora_dropout: 0.05
+lora_target_modules: all-linear
+
+# GRPO generation
+max_prompt_length: 768
+max_completion_length: 384
+num_generations: 4
+temperature: 0.7
+top_p: 0.95
+top_k: 50
+
+# GRPO optimization
+beta: 0.02
+epsilon: 0.2
+loss_type: dapo
+scale_rewards: group
+num_iterations: 1
+reward_weights:
+  task_reward: 1.0
+  format_reward: 0.15
+  length_reward: 0.05
+
+# Training
+per_device_train_batch_size: 1
+gradient_accumulation_steps: 4
+learning_rate: 2.0e-6
+num_train_epochs: 1.0
+max_steps: -1
+warmup_ratio: 0.03
+lr_scheduler_type: cosine
+weight_decay: 0.0
+max_grad_norm: 1.0
+gradient_checkpointing: true
+bf16: true
+seed: 42
+
+# Eval / logging
+eval_strategy: steps
+eval_steps: 100
+save_steps: 100
+logging_steps: 10
+save_total_limit: 2
+report_to: tensorboard
+log_completions: true
+num_completions_to_print: 2
+
+# Runtime
+use_vllm: false
+use_transformers_paged: false
+remove_unused_columns: false

@@ -20,11 +20,11 @@ env/
 .conda/
 
 # ------ 原始数据（体积大，不入库）------
-data/raw/
-data/processed/
-data/sft/*.json
-!data/sft/.gitkeep
+data/*
 !data/dataset_info.json
+!data/sft/
+data/sft/*
+!data/sft/.gitkeep
 
 # ------ 模型权重与 Checkpoint ------
 saves/
@@ -67,3 +67,6 @@ LLaMA-Factory/
 .env
 *.env
 secrets.yaml
+
+# ------ RAG / Agent 运行轨迹（生成数据，不入库）------
+data/rag/trajectories/

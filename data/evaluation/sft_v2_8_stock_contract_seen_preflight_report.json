@@ -1,0 +1,17 @@
+{
+  "schema_version": "sft_v2.8_stock_contract_gold.v1",
+  "samples": 50,
+  "source_groups": 25,
+  "unique_issuers": 25,
+  "variants_per_issuer": 2,
+  "by_challenge": {
+    "trusted_style": 25,
+    "adversarial": 25
+  },
+  "training_source_disjoint": true,
+  "train_heldout_issuer_overlap": [],
+  "split_manifest_version": "agentic-corpus-v2.0",
+  "seen_regression_document_overlap": 50,
+  "seen_regression_source_disjoint": false,
+  "evaluation_identity": "seen_contract_preflight_not_final_holdout"
+}

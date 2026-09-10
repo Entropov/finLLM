@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://finllm.local/schemas/trusted-sft-v2.json",
+  "title": "Trusted SFT v2 evaluation set",
+  "type": "array",
+  "minItems": 1,
+  "items": {
+    "type": "object",
+    "required": ["id", "task_type", "question", "request_as_of", "source_group", "scoring"],
+    "properties": {
+      "id": {"type": "string", "minLength": 1},
+      "task_type": {
+        "enum": ["stock_analysis", "quant_strategy", "financial_report", "sentiment_analysis", "financial_qa", "risk_assessment"]
+      },
+      "question": {"type": "string", "minLength": 1},
+      "request_as_of": {"type": "string", "format": "date-time"},
+      "source_group": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Issuer/report/event group used to prevent group leakage."
+      },
+      "requires_audit": {"type": "boolean", "default": true},
+      "evidence": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "evidence_id",
+            "source_uri",
+            "exact_quote",
+            "content_hash",
+            "document_version",
+            "fetched_at",
+            "publisher",
+            "source_type",
+            "reliability_tier"
+          ]
+        }
+      },
+      "scoring": {
+        "type": "object",
+        "required": ["mode"],
+        "properties": {
+          "mode": {"enum": ["exact", "label", "patterns"]},
+          "accepted_answers": {"type": "array", "items": {"type": "string"}},
+          "accepted_labels": {"type": "array", "items": {"type": "string"}},
+          "required_patterns": {"type": "array", "items": {"type": "string"}},
+          "forbidden_patterns": {"type": "array", "items": {"type": "string"}},
+          "pass_threshold": {"type": "number", "minimum": 0, "maximum": 1}
+        }
+      }
+    }
+  }
+}

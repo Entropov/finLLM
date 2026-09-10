@@ -1,0 +1,63 @@
+{
+  "schema_version": "sft_v2.6",
+  "profile": "compact_claim_aligned_abstention_quant_action",
+  "source_files": {
+    "train": "fin_agentic_sft_v2_5_answer_train.json",
+    "eval": "fin_agentic_sft_v2_5_answer_eval.json"
+  },
+  "components": {
+    "train": {
+      "samples": 1620,
+      "by_task": {
+        "financial_qa": 270,
+        "financial_report": 270,
+        "quant_strategy": 270,
+        "risk_assessment": 270,
+        "sentiment_analysis": 270,
+        "stock_analysis": 270
+      },
+      "max_target_chars": 437
+    },
+    "eval": {
+      "samples": 72,
+      "by_task": {
+        "financial_qa": 16,
+        "financial_report": 15,
+        "quant_strategy": 11,
+        "risk_assessment": 13,
+        "sentiment_analysis": 8,
+        "stock_analysis": 9
+      }
+    },
+    "preference": {
+      "samples": 1620
+    }
+  },
+  "dev_audit": {
+    "samples": 72,
+    "by_task": {
+      "financial_qa": 16,
+      "financial_report": 15,
+      "quant_strategy": 11,
+      "risk_assessment": 13,
+      "sentiment_analysis": 8,
+      "stock_analysis": 9
+    }
+  },
+  "evaluation_status": {
+    "trusted": "seen_regression_only",
+    "adversarial": "seen_regression_only",
+    "untouched_final_holdout": "pending_new_independent_gold"
+  },
+  "release_gate": {
+    "task_balanced_train": true,
+    "train_dev_source_disjoint": true,
+    "dev_regression_source_disjoint": true,
+    "train_regression_source_disjoint": true,
+    "all_targets_no_think": true,
+    "all_targets_short": true,
+    "all_targets_audit_checked": true,
+    "hard_negatives_cover_all_train": true
+  },
+  "release_gate_passed": true
+}

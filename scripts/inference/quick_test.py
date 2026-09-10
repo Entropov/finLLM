@@ -4,6 +4,7 @@
 
 import json
 import time
+import sys
 from pathlib import Path
 
 import torch
@@ -11,7 +12,10 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from peft import PeftModel
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-ADAPTER_PATH = PROJECT_ROOT / "saves" / "qwen2.5-7b" / "lora" / "sft"
+sys.path.append(str(PROJECT_ROOT))
+from scripts.inference.chat_template import apply_chat_template
+
+ADAPTER_PATH = PROJECT_ROOT / "saves" / "qwen3-8b" / "lora" / "sft"
 PROMPTS_FILE = PROJECT_ROOT / "prompts" / "system_prompts.json"
 
 TEST_CASES = [
@@ -39,7 +43,7 @@ def main():
         prompts_data = json.load(f)
     prompts = {k: v["system_prompt"] for k, v in prompts_data.items() if "system_prompt" in v}
 
-    model_id = "Qwen/Qwen2.5-7B-Instruct"
+    model_id = "Qwen/Qwen3-8B"
     print(f"加载基座模型 (bf16): {model_id}")
     tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
 
@@ -66,7 +70,7 @@ def main():
             {"role": "user", "content": question},
         ]
 
-        text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        text = apply_chat_template(messages=messages, tokenizer=tokenizer)
         inputs = tokenizer(text, return_tensors="pt").to(model.device)
         input_len = inputs["input_ids"].shape[-1]
 

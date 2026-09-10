@@ -1,0 +1,30 @@
+# Agentic RAG default configuration.
+# Basic RAG remains the default inference mode; this config is used only when
+# --rag-mode agentic is selected or by offline RAG evaluation.
+
+top_k: 3
+max_context_docs: 5
+max_context_chars: 6000
+multi_query_count: 4
+
+allow_web: false
+web_search_top_n: 5
+web_fetch_top_n: 3
+
+max_refine_steps: 2
+policy_type: rules
+min_total_reward_for_finish: 0.65
+require_langgraph: true
+enable_trajectory_logging: true
+reward_version: "2.0"
+
+# Non-compensable audit gates. Market feedback is applied only after all gates pass.
+min_retrieval_relevance: 0.18
+min_claim_support: 0.72
+min_citation_coverage: 1.0
+min_citation_precision: 1.0
+market_reward_cap: 0.05
+
+trajectory_log_dir: data/rag/trajectories
+preference_log_dir: data/rag/preferences
+eval_set_dir: data/rag/eval_sets

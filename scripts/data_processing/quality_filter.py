@@ -15,6 +15,8 @@
 import json
 import logging
 import hashlib
+import re
+import ast
 from pathlib import Path
 from typing import Optional
 from collections import Counter, defaultdict
@@ -50,6 +52,8 @@ MIN_QUESTION_LENGTH = 5
 DEDUP_NGRAM_SIZE = 5
 # 相似度阈值（Jaccard 相似度高于此值视为重复）
 DEDUP_SIMILARITY_THRESHOLD = 0.8
+# 近似去重是 O(n^2)，大文件默认跳过以保证管道可运行。
+MAX_APPROX_DEDUP_ITEMS = 5000
 # 低质量标记词（回答中出现这些通常表示生成失败）
 LOW_QUALITY_MARKERS = [
     "作为AI", "作为一个AI", "作为人工智能",
@@ -66,6 +70,18 @@ TASK_TARGET_RATIO = {
     "financial_qa": 0.20,
     "risk_assessment": 0.10,
 }
+
+ALL_TASKS = [
+    "stock_analysis",
+    "quant_strategy",
+    "financial_report",
+    "sentiment_analysis",
+    "financial_qa",
+    "risk_assessment",
+]
+CLASSIFICATION_TASKS = {"sentiment_analysis"}
+CODE_TASKS = {"quant_strategy"}
+FINAL_DATASETS = {"fin_instruct_train.json", "fin_instruct_eval.json"}
 
 
 def _get_ngrams(text: str, n: int = DEDUP_NGRAM_SIZE) -> set:
@@ -99,7 +115,60 @@ def _content_hash(text: str) -> str:
     return hashlib.md5(text.strip().encode("utf-8")).hexdigest()
 
 
-def check_basic_quality(entry: dict) -> tuple:
+def _get_task_type(entry: dict, fallback: str = "") -> str:
+    return entry.get("task_type") or fallback or "unknown"
+
+
+def _task_from_filename(path: Path) -> str:
+    stem = path.stem.replace("_filtered", "")
+    if not stem.startswith("fin_"):
+        return ""
+    task_name = stem.replace("fin_", "", 1)
+    aliases = {
+        "sentiment": "sentiment_analysis",
+        "qa": "financial_qa",
+    }
+    return aliases.get(task_name, task_name)
+
+
+def _first_turns(entry: dict) -> tuple:
+    convs = entry.get("conversations", [])
+    first_human = next((c for c in convs if c.get("from") == "human"), {})
+    first_gpt = next((c for c in convs if c.get("from") == "gpt"), {})
+    return first_human.get("value", ""), first_gpt.get("value", "")
+
+
+def filter_by_length(entry: dict, min_len: int = MIN_RESPONSE_LENGTH) -> bool:
+    """兼容测试和外部调用的长度过滤辅助函数。"""
+    question, response = _first_turns(entry)
+    return len(question.strip()) >= MIN_QUESTION_LENGTH and len(response.strip()) >= min_len
+
+
+def deduplicate_exact(data: list) -> list:
+    """基于首轮问答内容执行精确去重。"""
+    seen_hashes = set()
+    deduped = []
+    for entry in data:
+        question, response = _first_turns(entry)
+        h = _content_hash(question + response)
+        if h in seen_hashes:
+            continue
+        seen_hashes.add(h)
+        deduped.append(entry)
+    return deduped
+
+
+def _code_syntax_ok(text: str) -> bool:
+    match = re.search(r"```python\n(.*?)```", text, re.DOTALL)
+    code = match.group(1) if match else text
+    try:
+        ast.parse(code)
+        return True
+    except SyntaxError:
+        return False
+
+
+def check_basic_quality(entry: dict, fallback_task: str = "") -> tuple:
     """
     检查单条数据的基础质量。
 
@@ -121,16 +190,16 @@ def check_basic_quality(entry: dict) -> tuple:
     if not has_human or not has_gpt:
         return False, "缺少必要角色(human/gpt)"
 
+    task_type = _get_task_type(entry, fallback_task)
+
     # 检查问题长度
-    first_human = next(c for c in conversations if c.get("from") == "human")
-    if len(first_human.get("value", "")) < MIN_QUESTION_LENGTH:
+    question, response = _first_turns(entry)
+    if len(question) < MIN_QUESTION_LENGTH:
         return False, "问题过短"
 
     # 检查回答长度
-    first_gpt = next(c for c in conversations if c.get("from") == "gpt")
-    response = first_gpt.get("value", "")
-
-    if len(response) < MIN_RESPONSE_LENGTH:
+    min_response_length = 1 if task_type in CLASSIFICATION_TASKS else MIN_RESPONSE_LENGTH
+    if len(response) < min_response_length:
         return False, f"回答过短({len(response)}字)"
 
     if len(response) > MAX_RESPONSE_LENGTH:
@@ -141,15 +210,19 @@ def check_basic_quality(entry: dict) -> tuple:
         if marker in response[:100]:  # 仅检查开头 100 字
             return False, f"包含低质量标记: {marker}"
 
-    # 检查回答是否为空白或重复字符
+    # 分类标签可以很短，生成类回答不能只有少量重复字符。
     unique_chars = len(set(response))
-    if unique_chars < 10:
+    if task_type not in CLASSIFICATION_TASKS and unique_chars < 10:
         return False, "回答内容过于单一"
+
+    # 代码类任务记录语法问题但不硬过滤，避免丢掉有策略说明但代码片段不完整的样本。
+    if task_type in CODE_TASKS and "```python" in response and not _code_syntax_ok(response):
+        return True, "代码语法需复核"
 
     return True, "OK"
 
 
-def deduplicate_data(data: list) -> list:
+def deduplicate_data(data: list, task_type: str = "") -> list:
     """
     对数据进行去重（精确去重 + 近似去重）。
 
@@ -162,29 +235,19 @@ def deduplicate_data(data: list) -> list:
     logger.info("开始数据去重...")
 
     # 第一步: MD5 精确去重
-    seen_hashes = set()
-    stage1_data = []
-    exact_dup_count = 0
-
-    for entry in data:
-        # 基于第一轮问答的 hash 去重
-        convs = entry.get("conversations", [])
-        if len(convs) >= 2:
-            key_text = convs[0].get("value", "") + convs[1].get("value", "")
-            h = _content_hash(key_text)
-            if h not in seen_hashes:
-                seen_hashes.add(h)
-                stage1_data.append(entry)
-            else:
-                exact_dup_count += 1
-        else:
-            stage1_data.append(entry)
+    before_exact = len(data)
+    stage1_data = deduplicate_exact(data)
+    exact_dup_count = before_exact - len(stage1_data)
 
     logger.info(f"  精确去重: 移除 {exact_dup_count} 条完全重复数据")
 
+    if task_type in CLASSIFICATION_TASKS:
+        logger.info("  分类任务跳过近似回答去重，保留同标签不同输入样本")
+        return stage1_data
+
     # 第二步: n-gram 近似去重（仅对回答进行）
     # 注意: 数据量大时此步骤较慢，可酌情跳过
-    if len(stage1_data) > 50000:
+    if len(stage1_data) > MAX_APPROX_DEDUP_ITEMS:
         logger.info("  数据量较大，跳过近似去重（可通过参数启用）")
         return stage1_data
 
@@ -284,11 +347,14 @@ def filter_and_report(input_file: Path, output_file: Path) -> dict:
     with open(input_file, "r", encoding="utf-8") as f:
         data = json.load(f)
 
+    fallback_task = _task_from_filename(input_file)
     stats = {
         "input_count": len(data),
+        "task_type": fallback_task,
         "quality_pass": 0,
         "quality_fail": 0,
         "fail_reasons": Counter(),
+        "warnings": Counter(),
         "dedup_removed": 0,
         "output_count": 0,
     }
@@ -296,17 +362,21 @@ def filter_and_report(input_file: Path, output_file: Path) -> dict:
     # 1. 基础质量过滤
     quality_passed = []
     for entry in tqdm(data, desc="质量检查", unit="条"):
-        passed, reason = check_basic_quality(entry)
+        if fallback_task and not entry.get("task_type"):
+            entry["task_type"] = fallback_task
+        passed, reason = check_basic_quality(entry, fallback_task=fallback_task)
         if passed:
             quality_passed.append(entry)
             stats["quality_pass"] += 1
+            if reason != "OK":
+                stats["warnings"][reason] += 1
         else:
             stats["quality_fail"] += 1
             stats["fail_reasons"][reason] += 1
 
     # 2. 去重
     before_dedup = len(quality_passed)
-    deduped = deduplicate_data(quality_passed)
+    deduped = deduplicate_data(quality_passed, task_type=fallback_task)
     stats["dedup_removed"] = before_dedup - len(deduped)
 
     # 3. 保存结果
@@ -336,6 +406,8 @@ def run_quality_filter() -> None:
     }
 
     for json_file in sorted(SFT_DIR.glob("fin_*.json")):
+        if json_file.name in FINAL_DATASETS or json_file.stem.endswith("_filtered"):
+            continue
         logger.info(f"\n处理: {json_file.name}")
         output_file = SFT_DIR / f"{json_file.stem}_filtered.json"
 
@@ -351,6 +423,8 @@ def run_quality_filter() -> None:
             f"去重移除: {stats['dedup_removed']}, "
             f"输出: {stats['output_count']}"
         )
+        if stats["warnings"]:
+            logger.info(f"  质量警告: {dict(stats['warnings'])}")
 
     # 打印总统计
     logger.info("\n" + "=" * 60)

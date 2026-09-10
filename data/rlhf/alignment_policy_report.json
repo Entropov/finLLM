@@ -1,0 +1,96 @@
+{
+  "stock_analysis": {
+    "task_type": "stock_analysis",
+    "primary_method": "dpo",
+    "secondary_methods": [
+      "grpo"
+    ],
+    "dpo_target": 5000,
+    "grpo_target": 1000,
+    "reward_name": "technical_structure_reward",
+    "metrics": [
+      "technical_coverage",
+      "rouge_l",
+      "risk_disclaimer_rate"
+    ],
+    "notes": "DPO optimizes complete analysis; GRPO only rewards verifiable technical structure."
+  },
+  "quant_strategy": {
+    "task_type": "quant_strategy",
+    "primary_method": "grpo",
+    "secondary_methods": [
+      "dpo"
+    ],
+    "dpo_target": 2500,
+    "grpo_target": 5000,
+    "reward_name": "quant_code_reward",
+    "metrics": [
+      "syntax_correct_rate",
+      "strategy_element_rate",
+      "backtest_metric_rate"
+    ],
+    "notes": "GRPO is preferred because code syntax and strategy elements are rule-verifiable."
+  },
+  "financial_report": {
+    "task_type": "financial_report",
+    "primary_method": "dpo",
+    "secondary_methods": [],
+    "dpo_target": 5000,
+    "grpo_target": 0,
+    "reward_name": "financial_report_reward",
+    "metrics": [
+      "financial_metric_coverage",
+      "numeric_reference_rate",
+      "risk_highlight_coverage"
+    ],
+    "notes": "Open-ended report interpretation is best aligned with preference pairs."
+  },
+  "sentiment_analysis": {
+    "task_type": "sentiment_analysis",
+    "primary_method": "grpo",
+    "secondary_methods": [
+      "dpo"
+    ],
+    "dpo_target": 1000,
+    "grpo_target": 5000,
+    "reward_name": "sentiment_label_reward",
+    "metrics": [
+      "accuracy",
+      "macro_f1",
+      "format_compliance_rate"
+    ],
+    "notes": "Label accuracy and concise output are directly rewardable."
+  },
+  "financial_qa": {
+    "task_type": "financial_qa",
+    "primary_method": "dpo",
+    "secondary_methods": [
+      "grpo"
+    ],
+    "dpo_target": 5000,
+    "grpo_target": 1500,
+    "reward_name": "qa_answer_reward",
+    "metrics": [
+      "rouge_l",
+      "keyword_coverage",
+      "answer_key_accuracy"
+    ],
+    "notes": "Open QA uses DPO; extractive or exam-style QA can use GRPO rewards."
+  },
+  "risk_assessment": {
+    "task_type": "risk_assessment",
+    "primary_method": "dpo",
+    "secondary_methods": [
+      "grpo"
+    ],
+    "dpo_target": 4000,
+    "grpo_target": 3000,
+    "reward_name": "risk_assessment_reward",
+    "metrics": [
+      "risk_level_extraction_rate",
+      "risk_factor_coverage",
+      "mitigation_coverage"
+    ],
+    "notes": "Preference learning handles reasoning quality; GRPO rewards structured risk fields."
+  }
+}

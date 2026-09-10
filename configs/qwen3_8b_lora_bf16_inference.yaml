@@ -1,0 +1,25 @@
+# ============================================================
+# Fin-Instruct Qwen3-8B LoRA BF16 推理配置（不使用量化）
+# ============================================================
+
+# ==================== 模型配置 ====================
+# 方式一：加载合并后的完整模型（推荐用于部署）
+model_name_or_path: saves/qwen3-8b/lora-bf16/merged
+
+# 方式二：加载基座模型 + LoRA adapter（开发调试用）
+# model_name_or_path: Qwen/Qwen3-8B
+# adapter_name_or_path: saves/qwen3-8b/lora-bf16/sft
+# trust_remote_code: true
+
+# 注意: 本配置不设置 quantization_bit/quantization_method。
+
+# ==================== 微调方法 ====================
+finetuning_type: lora
+template: qwen3_nothink
+
+# ==================== 生成参数 ====================
+temperature: 0.7
+top_p: 0.9
+top_k: 50
+max_new_tokens: 2048
+repetition_penalty: 1.1

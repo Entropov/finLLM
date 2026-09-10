@@ -10,14 +10,15 @@
   - 支持对比微调前后的表现
 
 用法:
-  python scripts/evaluation/eval_finance_bench.py --model_path saves/qwen2.5-7b/lora/sft
-  python scripts/evaluation/eval_finance_bench.py --model_path Qwen/Qwen2.5-7B-Instruct  # 基线
+  python scripts/evaluation/eval_finance_bench.py --model-path saves/qwen3-8b/lora/sft
+  python scripts/evaluation/eval_finance_bench.py --model-path Qwen/Qwen3-8B  # 基线
 """
 
 import os
 import re
 import json
 import logging
+import sys
 from pathlib import Path
 from typing import Optional
 
@@ -38,13 +39,19 @@ logger = logging.getLogger(__name__)
 # 路径常量
 # ============================================================
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+sys.path.append(str(PROJECT_ROOT))
+from scripts.inference.chat_template import apply_chat_template
+
 RAW_DATA_DIR = PROJECT_ROOT / "data" / "raw"
 RESULTS_DIR = PROJECT_ROOT / "saves" / "eval_results"
+
+# FinGPT FinEval 数据目录（实际下载的数据）
+FINGPT_FINEVAL_DIR = RAW_DATA_DIR / "fingpt_fineval"
 
 
 def load_fineval_data(data_dir: Optional[Path] = None) -> list:
     """
-    加载 FinEval 评测数据。
+    加载 FinEval 评测数据（标准格式）。
 
     数据格式（多选题）:
     {
@@ -93,9 +100,128 @@ def load_fineval_data(data_dir: Optional[Path] = None) -> list:
     return all_questions
 
 
+def load_fingpt_fineval_data(data_dir: Optional[Path] = None) -> list:
+    """
+    加载 FinGPT FinEval 评测数据（实际下载的格式）。
+
+    数据格式（每行一个 JSON 对象，或列表）:
+    {
+        "input": "题目文本\nA. 选项A\nB. 选项B\nC. 选项C\nD. 选项D\n",
+        "output": "C. 选项文本",
+        "instruction": "以下是中国关于XXX考试的单项选择题，请选出其中的正确答案。"
+    }
+
+    参数:
+        data_dir: FinGPT FinEval 数据目录，默认为 data/raw/fingpt_fineval/
+
+    返回:
+        标准化后的评测题目列表，每项包含:
+            - question: 题目文本（不含选项）
+            - A/B/C/D: 各选项文本
+            - answer: 正确答案字母
+            - _raw_input: 原始 input 字段（用于构建 prompt）
+            - subject: 科目名称（从 instruction 中提取）
+    """
+    if data_dir is None:
+        data_dir = FINGPT_FINEVAL_DIR
+
+    if not data_dir.exists():
+        logger.warning(f"FinGPT FinEval 数据目录不存在: {data_dir}")
+        logger.info("请先运行: python scripts/data_collection/download_open_datasets.py")
+        return []
+
+    all_questions = []
+    for json_file in sorted(data_dir.rglob("*.json")):
+        if json_file.name.startswith("_") or json_file.name == "meta.json":
+            continue
+        try:
+            with open(json_file, "r", encoding="utf-8") as f:
+                content = f.read()
+
+            # 尝试解析标准 JSON（数组或单对象）
+            # 若失败，则按 NDJSON 格式（每行一个 JSON 对象）解析
+            items = []
+            try:
+                data = json.loads(content)
+                items = data if isinstance(data, list) else [data]
+            except json.JSONDecodeError:
+                # NDJSON 格式
+                for line in content.splitlines():
+                    line = line.strip()
+                    if line:
+                        try:
+                            items.append(json.loads(line))
+                        except json.JSONDecodeError:
+                            pass
+            for item in items:
+                if "input" not in item or "output" not in item:
+                    continue
+
+                raw_input = item["input"]
+                raw_output = item["output"]
+                instruction = item.get("instruction", "")
+
+                # 从 output 中提取答案字母，格式如 "C. 选项文本"
+                answer_letter = ""
+                m = re.match(r"^\s*([ABCD])[.、．]?", raw_output.strip())
+                if m:
+                    answer_letter = m.group(1)
+
+                if not answer_letter:
+                    continue  # 跳过无法识别答案的题目
+
+                # 从 instruction 中提取科目名称
+                subject = ""
+                subj_match = re.search(r"关于(.+?)考试", instruction)
+                if subj_match:
+                    subject = subj_match.group(1)
+
+                # 解析选项（格式："题目\nA. 选项\nB. 选项\nC. 选项\nD. 选项\n"）
+                option_a = option_b = option_c = option_d = ""
+                question_text = raw_input
+
+                lines = raw_input.split("\n")
+                q_lines = []
+                for line in lines:
+                    line = line.strip()
+                    if re.match(r"^A[.、．\s]", line):
+                        option_a = re.sub(r"^A[.、．\s]+", "", line).strip()
+                    elif re.match(r"^B[.、．\s]", line):
+                        option_b = re.sub(r"^B[.、．\s]+", "", line).strip()
+                    elif re.match(r"^C[.、．\s]", line):
+                        option_c = re.sub(r"^C[.、．\s]+", "", line).strip()
+                    elif re.match(r"^D[.、．\s]", line):
+                        option_d = re.sub(r"^D[.、．\s]+", "", line).strip()
+                    elif line:
+                        q_lines.append(line)
+
+                question_text = " ".join(q_lines).strip()
+
+                all_questions.append({
+                    "question": question_text,
+                    "A": option_a,
+                    "B": option_b,
+                    "C": option_c,
+                    "D": option_d,
+                    "answer": answer_letter,
+                    "subject": subject,
+                    "_raw_input": raw_input,  # 保留原始输入，用于 prompt 构建
+                })
+
+        except Exception as e:
+            logger.warning(f"读取 {json_file} 失败: {e}")
+
+    logger.info(f"加载 FinGPT FinEval 题目: {len(all_questions)} 道")
+    return all_questions
+
+
 def format_mcq_prompt(question_data: dict) -> str:
     """
     将多选题数据格式化为模型输入 Prompt。
+
+    支持两种格式:
+    1. 标准格式: {"question": ..., "A": ..., "B": ..., "C": ..., "D": ...}
+    2. FinGPT 格式: {"_raw_input": "题目\nA. ...\nB. ...\n", ...}
 
     参数:
         question_data: 单道题目的字典
@@ -103,6 +229,17 @@ def format_mcq_prompt(question_data: dict) -> str:
     返回:
         格式化后的 prompt 字符串
     """
+    # 优先使用原始输入（FinGPT 格式），避免重新拼接时格式丢失
+    if "_raw_input" in question_data:
+        raw = question_data["_raw_input"].strip()
+        prompt = (
+            f"请回答以下单选题，直接给出答案选项字母（A/B/C/D），不需要解释。\n\n"
+            f"{raw}\n\n"
+            f"答案："
+        )
+        return prompt
+
+    # 标准格式
     question = question_data.get("question", question_data.get("input", ""))
     option_a = question_data.get("A", "")
     option_b = question_data.get("B", "")
@@ -250,9 +387,7 @@ def evaluate_model(
         ]
 
         try:
-            text = tokenizer.apply_chat_template(
-                messages, tokenize=False, add_generation_prompt=True
-            )
+            text = apply_chat_template(messages=messages, tokenizer=tokenizer)
             inputs = tokenizer(text, return_tensors="pt").to(model.device)
 
             with torch.no_grad():
@@ -307,25 +442,48 @@ def evaluate_model(
 
 
 def run_evaluation(
-    model_path: str = "Qwen/Qwen2.5-7B-Instruct",
+    model_path: str = "Qwen/Qwen3-8B",
     adapter_path: Optional[str] = None,
     max_questions: Optional[int] = None,
+    data_dir: Optional[Path] = None,
 ) -> None:
     """
     运行完整的 FinEval 评测流程。
+
+    数据加载优先级:
+    1. 若指定 data_dir，从该目录加载（自动检测格式）
+    2. 优先使用 fingpt_fineval 目录（已下载）
+    3. 回退到标准 fineval 目录
 
     参数:
         model_path:    模型路径
         adapter_path:  LoRA adapter 路径
         max_questions: 最大评测题数（调试用）
+        data_dir:      自定义数据目录（可选）
     """
     logger.info("=" * 60)
     logger.info("FinEval 金融基准测试")
     logger.info("=" * 60)
 
-    # 1. 加载数据
-    questions = load_fineval_data()
+    # 1. 加载数据 —— 优先使用已下载的 FinGPT FinEval 数据
+    questions = []
+    if data_dir is not None:
+        # 用户指定目录时，先尝试 FinGPT 格式，再尝试标准格式
+        questions = load_fingpt_fineval_data(data_dir)
+        if not questions:
+            questions = load_fineval_data(data_dir)
+    else:
+        # 默认：优先 fingpt_fineval，回退到 fineval
+        if FINGPT_FINEVAL_DIR.exists():
+            logger.info(f"检测到 FinGPT FinEval 数据，从 {FINGPT_FINEVAL_DIR} 加载")
+            questions = load_fingpt_fineval_data()
+        else:
+            logger.info("未找到 FinGPT FinEval 数据，尝试标准 FinEval 目录")
+            questions = load_fineval_data()
+
     if not questions:
+        logger.error("未找到任何评测数据，请确认数据已下载")
+        logger.info("  运行: python scripts/data_collection/download_open_datasets.py")
         return
 
     if max_questions:
@@ -374,7 +532,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--model-path",
         type=str,
-        default="Qwen/Qwen2.5-7B-Instruct",
+        default="Qwen/Qwen3-8B",
         help="模型路径或 HuggingFace ID",
     )
     parser.add_argument(
@@ -389,10 +547,22 @@ if __name__ == "__main__":
         default=None,
         help="最大评测题数（调试用）",
     )
+    parser.add_argument(
+        "--data-dir",
+        type=str,
+        default=None,
+        help="评测数据目录（可选，默认自动查找 fingpt_fineval 或 fineval）",
+    )
+    parser.add_argument(
+        "--no-quantize",
+        action="store_true",
+        help="禁用 4-bit 量化（GPU 显存充足时使用）",
+    )
     args = parser.parse_args()
 
     run_evaluation(
         model_path=args.model_path,
         adapter_path=args.adapter_path,
         max_questions=args.max_questions,
+        data_dir=Path(args.data_dir) if args.data_dir else None,
     )

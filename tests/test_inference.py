@@ -11,6 +11,8 @@
 """
 
 import json
+import asyncio
+import types
 import sys
 import tempfile
 from pathlib import Path
@@ -153,6 +155,8 @@ class TestAPIRequestModels:
         assert req.max_tokens == 2048
         assert req.stream is False
         assert req.model == "fin-instruct"
+        assert req.rag_mode == "basic"
+        assert req.task_type is None
 
     def test_chat_completion_request_custom(self):
         """ChatCompletionRequest 自定义参数。"""
@@ -167,10 +171,14 @@ class TestAPIRequestModels:
             temperature=0.3,
             max_tokens=512,
             stream=True,
+            rag_mode="agentic",
+            task_type="financial_report",
         )
         assert req.temperature == 0.3
         assert req.max_tokens == 512
         assert req.stream is True
+        assert req.rag_mode == "agentic"
+        assert req.task_type == "financial_report"
         assert len(req.messages) == 2
 
 
@@ -209,6 +217,150 @@ class TestAPIRoutes:
             "messages": [{"role": "user", "content": "hello"}]
         })
         assert response.status_code == 503
+
+
+class TestVLLMBackend:
+    """测试 vLLM 适配层的可 mock 行为。"""
+
+    def test_build_sampling_params_temperature_zero(self):
+        from scripts.inference.vllm_backend import build_sampling_params
+
+        class FakeSamplingParams:
+            def __init__(self, **kwargs):
+                self.kwargs = kwargs
+
+        params = build_sampling_params(
+            max_tokens=32,
+            temperature=0,
+            top_p=0.5,
+            repetition_penalty=1.0,
+            sampling_params_cls=FakeSamplingParams,
+        )
+        assert params.kwargs["temperature"] == 0.0
+        assert params.kwargs["top_p"] == 1.0
+
+    def test_validate_vllm_rejects_adapter(self):
+        from scripts.inference.vllm_backend import validate_vllm_model_options
+
+        with pytest.raises(ValueError, match="merged model"):
+            validate_vllm_model_options("saves/qwen3-8b/lora/sft")
+
+    def test_normalize_request_output(self):
+        from scripts.inference.vllm_backend import normalize_request_output
+
+        output = types.SimpleNamespace(
+            prompt_token_ids=[1, 2, 3],
+            outputs=[
+                types.SimpleNamespace(
+                    text="你好",
+                    token_ids=[4, 5],
+                    finish_reason="stop",
+                )
+            ],
+        )
+        result = normalize_request_output(output)
+        assert result["text"] == "你好"
+        assert result["prompt_token_ids"] == [1, 2, 3]
+        assert result["output_token_ids"] == [4, 5]
+
+    def test_missing_vllm_error_is_lazy(self, monkeypatch):
+        import scripts.inference.vllm_backend as backend
+
+        def fail_import():
+            raise RuntimeError(backend.VLLM_INSTALL_HINT)
+
+        monkeypatch.setattr(backend, "_import_vllm", fail_import)
+        with pytest.raises(RuntimeError, match="pip install -r requirements.txt"):
+            backend.VLLMBatchEngine(backend.VLLMEngineConfig(model_path="missing"))
+
+
+class TestBatchInferenceVLLM:
+    """测试 batch vLLM 输出映射。"""
+
+    def test_batch_generate_vllm_maps_outputs(self):
+        from scripts.inference.batch_inference import batch_generate_vllm
+
+        class FakeTokenizer:
+            def apply_chat_template(self, messages, tokenize, add_generation_prompt, **kwargs):
+                return messages[-1]["content"]
+
+        class FakeEngine:
+            def generate(self, prompts, **kwargs):
+                assert prompts == ["Q1", "Q2"]
+                return [
+                    {"text": "A1", "prompt_token_ids": [1], "output_token_ids": [2, 3]},
+                    {"text": "A2", "prompt_token_ids": [4], "output_token_ids": [5]},
+                ]
+
+        results = batch_generate_vllm(
+            engine=FakeEngine(),
+            tokenizer=FakeTokenizer(),
+            questions=[{"question": "Q1"}, {"question": ""}, {"question": "Q2"}],
+            system_prompt="sys",
+            max_new_tokens=8,
+        )
+        assert results[0]["answer"] == "A1"
+        assert results[0]["output_tokens"] == 2
+        assert results[1]["error"] == "问题为空"
+        assert results[2]["answer"] == "A2"
+
+
+class TestAPIVLLMGeneration:
+    """测试 API vLLM 响应封装。"""
+
+    def test_generate_vllm_response(self, monkeypatch):
+        import scripts.inference.api_server as api_server
+
+        class FakeModel:
+            async def generate(self, prompt, **kwargs):
+                assert prompt == "prompt"
+                return {
+                    "text": "answer",
+                    "prompt_token_ids": [1, 2],
+                    "output_token_ids": [3, 4, 5],
+                    "finish_reason": "stop",
+                }
+
+        req = api_server.ChatCompletionRequest(
+            messages=[api_server.ChatMessage(role="user", content="hello")]
+        )
+        monkeypatch.setattr(api_server, "model", FakeModel())
+        monkeypatch.setattr(api_server, "model_name", "merged")
+        response = asyncio.run(api_server._generate_vllm_response("prompt", req))
+        assert response.choices[0]["message"]["content"] == "answer"
+        assert response.usage["total_tokens"] == 5
+
+    def test_stream_generate_vllm_deltas(self, monkeypatch):
+        import scripts.inference.api_server as api_server
+
+        class FakeModel:
+            async def stream(self, prompt, **kwargs):
+                yield {"text": "你", "finish_reason": None}
+                yield {"text": "你好", "finish_reason": "stop"}
+
+            async def abort(self, request_id):
+                raise AssertionError("abort should not be called")
+
+        class FakeRequest:
+            async def is_disconnected(self):
+                return False
+
+        async def collect():
+            req = api_server.ChatCompletionRequest(
+                messages=[api_server.ChatMessage(role="user", content="hello")],
+                stream=True,
+            )
+            chunks = []
+            async for chunk in api_server._stream_generate_vllm("prompt", req, FakeRequest()):
+                chunks.append(chunk)
+            return chunks
+
+        monkeypatch.setattr(api_server, "model", FakeModel())
+        monkeypatch.setattr(api_server, "model_name", "merged")
+        chunks = asyncio.run(collect())
+        assert '"content": "你"' in chunks[0]
+        assert '"content": "好"' in chunks[1]
+        assert chunks[-1] == "data: [DONE]\n\n"
 
 
 # ============================================================

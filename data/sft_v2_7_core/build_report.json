@@ -1,0 +1,107 @@
+{
+  "schema_version": "sft_v2.7-core",
+  "profile": "three_task_core_scope_from_audited_v2.6",
+  "core_tasks": [
+    "financial_qa",
+    "quant_strategy",
+    "stock_analysis"
+  ],
+  "excluded_from_optimization": [
+    "financial_report",
+    "risk_assessment",
+    "sentiment_analysis"
+  ],
+  "source_artifacts": {
+    "train": {
+      "path": "/home/super/workspace/finLLM/data/sft_v2_6/fin_agentic_sft_v2_6_answer_train.json",
+      "sha256": "3670a4340b97a6d01ba848af461ca7e68eeb0b3893c94a9f3eef2064537476fa"
+    },
+    "eval": {
+      "path": "/home/super/workspace/finLLM/data/sft_v2_6/fin_agentic_sft_v2_6_answer_eval.json",
+      "sha256": "a22d8bdc5c9c50c86b2d4efc07b4d951592c94b7c81f5010106bd9e3d9b312f1"
+    },
+    "dev": {
+      "path": "/home/super/workspace/finLLM/data/evaluation/sft_v2_6_dev_audit.json",
+      "sha256": "4e0b9b996afc2b4171bab55c854347e96b53e5f3e75c6d946d69e486091dff23"
+    },
+    "trusted": {
+      "path": "/home/super/workspace/finLLM/data/evaluation/trusted_finance_v2.json",
+      "sha256": "ed9d55cfff9accde8b4eb6d761987c0dc7ad67e04abc505a6e570f227f971258"
+    },
+    "adversarial": {
+      "path": "/home/super/workspace/finLLM/data/evaluation/sft_v2_3_audit_adversarial.json",
+      "sha256": "63e7cd74c41b903c0d443ab91d0194bcb26206c8fabb1f2ebcc7475893c3b747"
+    },
+    "preference": {
+      "path": "/home/super/workspace/finLLM/data/rlhf/sft_v2_6_hard_negative_preference.json",
+      "sha256": "6287cc1b63d608576ea436d5984aa6b267ec0b4ffe2e661d6bf35abdad78189a"
+    }
+  },
+  "components": {
+    "train": {
+      "samples": 810,
+      "by_task": {
+        "financial_qa": 270,
+        "quant_strategy": 270,
+        "stock_analysis": 270
+      },
+      "max_target_chars": 428
+    },
+    "eval": {
+      "samples": 36,
+      "by_task": {
+        "financial_qa": 16,
+        "quant_strategy": 11,
+        "stock_analysis": 9
+      }
+    },
+    "preference": {
+      "samples": 810,
+      "by_task": {
+        "financial_qa": 270,
+        "quant_strategy": 270,
+        "stock_analysis": 270
+      }
+    },
+    "dev_audit": {
+      "samples": 36,
+      "by_task": {
+        "financial_qa": 16,
+        "quant_strategy": 11,
+        "stock_analysis": 9
+      }
+    },
+    "trusted_regression": {
+      "samples": 150,
+      "by_task": {
+        "financial_qa": 50,
+        "quant_strategy": 50,
+        "stock_analysis": 50
+      },
+      "identity": "seen_regression_only"
+    },
+    "adversarial_regression": {
+      "samples": 150,
+      "by_task": {
+        "financial_qa": 50,
+        "quant_strategy": 50,
+        "stock_analysis": 50
+      },
+      "identity": "seen_regression_only"
+    }
+  },
+  "release_gate": {
+    "exact_core_task_set": true,
+    "task_balanced_train": true,
+    "eval_contains_all_core_tasks": true,
+    "dev_contains_all_core_tasks": true,
+    "trusted_has_50_per_core_task": true,
+    "adversarial_has_50_per_core_task": true,
+    "preference_covers_train": true,
+    "train_dev_source_disjoint": true,
+    "train_regression_source_disjoint": true,
+    "dev_regression_source_disjoint": true,
+    "all_train_targets_audit_checked_and_no_think": true
+  },
+  "release_gate_passed": true
+}

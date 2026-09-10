@@ -1,0 +1,221 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://finllm.local/schemas/audit-v2.json",
+  "title": "FinLLM auditable agent trajectory v2",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "query_id",
+    "query",
+    "task_type",
+    "request_as_of",
+    "final_answer",
+    "evidence",
+    "claims",
+    "calculations",
+    "trajectory"
+  ],
+  "properties": {
+    "schema_version": {"const": "2.0"},
+    "query_id": {"type": "string", "minLength": 1},
+    "query": {"type": "string", "minLength": 1},
+    "task_type": {
+      "enum": [
+        "stock_analysis",
+        "quant_strategy",
+        "financial_report",
+        "sentiment_analysis",
+        "financial_qa",
+        "risk_assessment"
+      ]
+    },
+    "request_as_of": {"type": "string", "format": "date-time"},
+    "final_answer": {"type": "string", "minLength": 1},
+    "evidence": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/evidence"}
+    },
+    "claims": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/claim"}
+    },
+    "calculations": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/calculation"}
+    },
+    "trajectory": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/event"}
+    },
+    "validation_errors": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "reward": {"type": "object"}
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "evidenceId": {
+      "type": "string",
+      "pattern": "^E[0-9A-Fa-f]{10,64}$"
+    },
+    "optionalDateTime": {
+      "anyOf": [
+        {"type": "string", "format": "date-time"},
+        {"const": ""}
+      ]
+    },
+    "evidence": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "evidence_id",
+        "source_uri",
+        "canonical_url",
+        "publisher",
+        "source_type",
+        "reliability_tier",
+        "exact_quote",
+        "content_hash",
+        "document_version",
+        "published_at",
+        "effective_at",
+        "fetched_at",
+        "chunk_index",
+        "start_char",
+        "end_char",
+        "retrieval_query",
+        "retrieval_rank",
+        "point_in_time_available"
+      ],
+      "properties": {
+        "schema_version": {"const": "2.0"},
+        "evidence_id": {"$ref": "#/$defs/evidenceId"},
+        "source_uri": {"type": "string", "minLength": 1},
+        "canonical_url": {"type": "string"},
+        "publisher": {"type": "string", "minLength": 1},
+        "source_type": {
+          "enum": ["regulator", "exchange", "issuer", "market_data", "research", "news", "internal", "unknown"]
+        },
+        "reliability_tier": {
+          "enum": ["primary", "verified_secondary", "unverified_secondary", "internal", "unknown"]
+        },
+        "title": {"type": "string"},
+        "exact_quote": {"type": "string", "minLength": 1},
+        "content_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "document_version": {"type": "string", "minLength": 1},
+        "published_at": {"$ref": "#/$defs/optionalDateTime"},
+        "effective_at": {"$ref": "#/$defs/optionalDateTime"},
+        "fetched_at": {"type": "string", "format": "date-time"},
+        "chunk_index": {"type": "integer"},
+        "start_char": {"type": "integer"},
+        "end_char": {"type": "integer"},
+        "retrieval_query": {"type": "string"},
+        "retrieval_rank": {"type": "integer"},
+        "point_in_time_available": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
+    "claim": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "claim_id",
+        "statement",
+        "claim_type",
+        "supporting_evidence_ids",
+        "contradicting_evidence_ids",
+        "calculation_id",
+        "confidence",
+        "as_of",
+        "assumptions"
+      ],
+      "properties": {
+        "schema_version": {"const": "2.0"},
+        "claim_id": {"type": "string", "minLength": 1},
+        "statement": {"type": "string", "minLength": 1},
+        "claim_type": {"enum": ["fact", "calculation", "inference", "opinion"]},
+        "supporting_evidence_ids": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/evidenceId"},
+          "uniqueItems": true
+        },
+        "contradicting_evidence_ids": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/evidenceId"},
+          "uniqueItems": true
+        },
+        "calculation_id": {"type": "string"},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "as_of": {"$ref": "#/$defs/optionalDateTime"},
+        "assumptions": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "calculation": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "calculation_id",
+        "expression",
+        "inputs",
+        "result",
+        "unit",
+        "evidence_ids"
+      ],
+      "properties": {
+        "schema_version": {"const": "2.0"},
+        "calculation_id": {"type": "string", "minLength": 1},
+        "expression": {"type": "string", "minLength": 1, "maxLength": 512},
+        "inputs": {
+          "type": "object",
+          "additionalProperties": {"type": "number"},
+          "minProperties": 1
+        },
+        "result": {"type": "number"},
+        "unit": {"type": "string"},
+        "evidence_ids": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/evidenceId"},
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "event": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "step_id",
+        "timestamp",
+        "node",
+        "action",
+        "action_args",
+        "observation_ids",
+        "verifier_scores",
+        "errors"
+      ],
+      "properties": {
+        "schema_version": {"const": "2.0"},
+        "step_id": {"type": "integer", "minimum": 1},
+        "timestamp": {"type": "string", "format": "date-time"},
+        "node": {"type": "string", "minLength": 1},
+        "action": {"type": "string", "minLength": 1},
+        "action_args": {"type": "object"},
+        "observation_ids": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/evidenceId"},
+          "uniqueItems": true
+        },
+        "verifier_scores": {
+          "type": "object",
+          "additionalProperties": {"type": "number"}
+        },
+        "errors": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    }
+  }
+}

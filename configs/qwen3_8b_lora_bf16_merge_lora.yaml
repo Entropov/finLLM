@@ -1,0 +1,19 @@
+# ============================================================
+# Fin-Instruct Qwen3-8B LoRA BF16 权重合并配置
+# ============================================================
+# 注意: 合并 LoRA 时不要设置 quantization_bit。
+
+# ==================== 模型配置 ====================
+model_name_or_path: Qwen/Qwen3-8B
+adapter_name_or_path: saves/qwen3-8b/lora-bf16/sft
+trust_remote_code: true
+
+# ==================== 微调方法 ====================
+finetuning_type: lora
+template: qwen3_nothink
+
+# ==================== 合并与导出 ====================
+export_dir: saves/qwen3-8b/lora-bf16/merged
+export_size: 5
+export_device: cpu
+export_legacy_format: false

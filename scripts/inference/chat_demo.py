@@ -12,7 +12,7 @@ Gradio 交互式聊天演示
 
 用法:
   python scripts/inference/chat_demo.py
-  python scripts/inference/chat_demo.py --model-path saves/qwen2.5-7b/merged
+  python scripts/inference/chat_demo.py --model-path saves/qwen3-8b/lora/dpo/checkpoint-200
   python scripts/inference/chat_demo.py --share  # 生成公网链接
 """
 
@@ -24,6 +24,15 @@ from threading import Thread
 
 import torch
 import gradio as gr
+
+
+import sys
+sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
+from scripts.rag.retriever import RAGRetriever
+from scripts.rag.knowledge_agent import WebKnowledgeAgent
+from scripts.rag.agentic_rag import AgenticRAGPipeline
+from scripts.inference.chat_template import apply_chat_template
+
 
 # ============================================================
 # 日志配置
@@ -47,6 +56,12 @@ PROMPTS_FILE = PROJECT_ROOT / "prompts" / "system_prompts.json"
 model = None
 tokenizer = None
 system_prompts = {}
+rag_retriever = None
+web_knowledge_agent = None
+web_knowledge_enabled_by_default = False
+rag_mode_default = "basic"
+agentic_rag_pipeline = None
+agentic_rag_config_path = None
 
 
 def load_prompts() -> dict:
@@ -61,9 +76,10 @@ def load_prompts() -> dict:
 
 
 def load_model(
-    model_path: str = "Qwen/Qwen2.5-7B-Instruct",
+    model_path: str = "Qwen/Qwen3-8B",
     adapter_path: Optional[str] = None,
     quantize: bool = True,
+    rag_db_dir: Optional[str] = None,
 ):
     """
     加载模型和分词器。
@@ -111,6 +127,123 @@ def load_model(
 
     model.eval()
     logger.info("模型加载完成！")
+    
+    global rag_retriever
+    if RAGRetriever:
+        try:
+            logger.info("初始化 RAG 检索器...")
+            kwargs = {"device": "cuda" if torch.cuda.is_available() else "cpu"}
+            if rag_db_dir:
+                kwargs["db_dir"] = rag_db_dir
+            rag_retriever = RAGRetriever(**kwargs)
+            if not rag_retriever.is_ready():
+                 logger.warning("RAG 检索器初始化完成，但底层数据库无数据或未就绪。")
+        except Exception as e:
+            logger.error(f"初始化 RAG 检索器失败: {e}")
+            rag_retriever = None
+    else:
+        logger.warning("未找到 RAGRetriever 模块。")
+
+
+def init_web_knowledge_system(enable_web_knowledge: bool, db_dir: Optional[str] = None, knowledge_dir: Optional[str] = None):
+    global web_knowledge_agent, web_knowledge_enabled_by_default
+    web_knowledge_enabled_by_default = enable_web_knowledge
+    if not enable_web_knowledge:
+        return
+
+    try:
+        logger.info("初始化实时联网知识代理...")
+        kwargs = {"device": "cuda" if torch.cuda.is_available() else "cpu"}
+        if db_dir:
+            kwargs["db_dir"] = db_dir
+        if knowledge_dir:
+            kwargs["knowledge_dir"] = knowledge_dir
+        web_knowledge_agent = WebKnowledgeAgent(**kwargs)
+    except Exception as e:
+        logger.error(f"初始化实时联网知识代理失败: {e}")
+        web_knowledge_agent = None
+
+
+def init_agentic_rag_system(rag_mode: str = "basic", config_path: Optional[str] = None):
+    global agentic_rag_pipeline, rag_mode_default, agentic_rag_config_path
+    rag_mode_default = rag_mode
+    agentic_rag_config_path = config_path
+    if rag_mode != "agentic":
+        return
+    try:
+        logger.info("初始化 Agentic RAG pipeline...")
+        agentic_rag_pipeline = AgenticRAGPipeline(
+            retriever=rag_retriever,
+            web_agent=web_knowledge_agent,
+            config_path=config_path,
+        )
+    except Exception as e:
+        logger.warning(f"初始化 Agentic RAG 失败，自动回退 basic RAG: {e}")
+        agentic_rag_pipeline = None
+
+
+def enrich_prompt_with_knowledge(
+    message: str,
+    system_prompt: str,
+    enable_rag: bool,
+    rag_mode: str,
+    rag_top_k: int,
+    enable_web_knowledge: Optional[bool],
+    web_search_top_n: int,
+    web_fetch_top_n: int,
+    return_agent_state: bool = False,
+):
+    global rag_retriever, web_knowledge_agent, web_knowledge_enabled_by_default
+    global agentic_rag_pipeline
+
+    should_use_web_knowledge = (
+        web_knowledge_enabled_by_default if enable_web_knowledge is None else enable_web_knowledge
+    )
+    requested_mode = rag_mode or rag_mode_default
+    if requested_mode == "agentic" and agentic_rag_pipeline is None:
+        try:
+            agentic_rag_pipeline = AgenticRAGPipeline(
+                retriever=rag_retriever,
+                web_agent=web_knowledge_agent,
+                config_path=agentic_rag_config_path,
+            )
+        except Exception as e:
+            logger.warning(f"懒加载 Agentic RAG 失败，自动回退 basic RAG: {e}")
+
+    if requested_mode == "agentic" and agentic_rag_pipeline is not None:
+        prompt, prepared_state = agentic_rag_pipeline.build_augmented_prompt_with_state(
+            system_prompt,
+            message,
+            runtime_options={
+                "top_k": rag_top_k,
+                "allow_web": should_use_web_knowledge,
+                "web_search_top_n": web_search_top_n,
+                "web_fetch_top_n": web_fetch_top_n,
+            },
+        )
+        return (prompt, prepared_state) if return_agent_state else prompt
+
+    if should_use_web_knowledge and web_knowledge_agent is not None:
+        try:
+            saved_files = web_knowledge_agent.collect(
+                message,
+                search_top_n=web_search_top_n,
+                fetch_top_n=web_fetch_top_n,
+            )
+            if saved_files:
+                logger.info(f"实时联网补充知识完成，本次新增文档数: {len(saved_files)}")
+                if rag_retriever is not None:
+                    rag_retriever.refresh()
+        except Exception as e:
+            logger.warning(f"实时联网补充知识失败，自动降级为本地知识库检索: {e}")
+
+    actual_system_prompt = system_prompt
+    should_apply_rag = enable_rag or should_use_web_knowledge
+    if should_apply_rag and rag_retriever and rag_retriever.is_ready():
+        actual_system_prompt = rag_retriever.format_prompt_with_context(
+            system_prompt, message, top_k=rag_top_k
+        )
+    return (actual_system_prompt, None) if return_agent_state else actual_system_prompt
 
 
 def generate_response(
@@ -120,6 +253,12 @@ def generate_response(
     temperature: float = 0.7,
     max_new_tokens: int = 2048,
     top_p: float = 0.9,
+    enable_rag: bool = False,
+    rag_mode: str = "basic",
+    rag_top_k: int = 3,
+    enable_web_knowledge: Optional[bool] = None,
+    web_search_top_n: int = 5,
+    web_fetch_top_n: int = 3,
 ) -> Generator[str, None, None]:
     """
     流式生成回复。
@@ -131,14 +270,29 @@ def generate_response(
         temperature:    温度系数
         max_new_tokens: 最大生成 token 数
         top_p:          核采样概率
+        enable_rag:     是否开启 RAG 检索
+        rag_top_k:      RAG 检索的 top_k 值
 
     生成器:
         逐步产出的文本片段
     """
     from transformers import TextIteratorStreamer
 
-    # 构建对话消息列表
-    messages = [{"role": "system", "content": system_prompt}]
+    # 1. 如果开启了 RAG，进行知识检索并改造 System Prompt
+    actual_system_prompt, prepared_agent_state = enrich_prompt_with_knowledge(
+        message=message,
+        system_prompt=system_prompt,
+        enable_rag=enable_rag,
+        rag_mode=rag_mode,
+        rag_top_k=rag_top_k,
+        enable_web_knowledge=enable_web_knowledge,
+        web_search_top_n=web_search_top_n,
+        web_fetch_top_n=web_fetch_top_n,
+        return_agent_state=True,
+    )
+        
+    # 2. 构建对话消息列表
+    messages = [{"role": "system", "content": actual_system_prompt}]
 
     for user_msg, assistant_msg in history:
         if user_msg:
@@ -149,9 +303,11 @@ def generate_response(
     messages.append({"role": "user", "content": message})
 
     # 编码输入
-    text = tokenizer.apply_chat_template(
-        messages, tokenize=False, add_generation_prompt=True
+    enable_thinking = bool(
+        prepared_agent_state
+        and prepared_agent_state.get("claim_plan", {}).get("complex_task")
     )
+    text = apply_chat_template(messages=messages, tokenizer=tokenizer, enable_thinking=enable_thinking)
     inputs = tokenizer(text, return_tensors="pt").to(model.device)
 
     # 设置流式输出器
@@ -181,6 +337,11 @@ def generate_response(
         yield partial_text
 
     thread.join()
+    if prepared_agent_state is not None and agentic_rag_pipeline is not None:
+        try:
+            agentic_rag_pipeline.finalize(prepared_agent_state, partial_text)
+        except Exception as exc:
+            logger.warning(f"Agentic RAG completion audit failed: {exc}")
 
 
 def create_demo() -> gr.Blocks:
@@ -201,7 +362,7 @@ def create_demo() -> gr.Blocks:
         gr.Markdown(
             """
             # 🏦 Fin-Instruct 金融AI助手
-            基于 Qwen2.5-7B-Instruct 微调的专业金融分析模型，
+            基于 Qwen3-8B 微调的专业金融分析模型，
             支持股票分析、量化策略、财报解读、情感分析、金融问答和风险评估。
 
             **⚠️ 免责声明：所有分析仅供参考，不构成投资建议。**
@@ -236,6 +397,27 @@ def create_demo() -> gr.Blocks:
                     top_p = gr.Slider(
                         minimum=0.1, maximum=1.0, value=0.9, step=0.05,
                         label="Top-P（核采样）",
+                    )
+                with gr.Accordion("知识库检索 (RAG)", open=False):
+                    enable_rag = gr.Checkbox(label="开启本地知识库增强", value=False)
+                    rag_mode = gr.Radio(
+                        choices=["basic", "agentic"],
+                        value=rag_mode_default,
+                        label="RAG 模式",
+                    )
+                    rag_top_k = gr.Slider(
+                        minimum=1, maximum=10, value=3, step=1,
+                        label="检索知识条数 (Top K)",
+                        info="注入的外部背景知识片段数"
+                    )
+                    enable_web_knowledge = gr.Checkbox(label="提问时自动联网补知识", value=web_knowledge_enabled_by_default)
+                    web_search_top_n = gr.Slider(
+                        minimum=1, maximum=10, value=5, step=1,
+                        label="联网搜索候选数",
+                    )
+                    web_fetch_top_n = gr.Slider(
+                        minimum=1, maximum=5, value=3, step=1,
+                        label="实际抓取网页数",
                     )
 
             with gr.Column(scale=3):
@@ -277,12 +459,12 @@ def create_demo() -> gr.Blocks:
             outputs=[system_prompt_box],
         )
 
-        def user_submit(message, history, sys_prompt, temp, max_tok, tp):
+        def user_submit(message, history, sys_prompt, temp, max_tok, tp, enable_rag, rag_mode, rag_k, enable_web_knowledge, web_search_top_n, web_fetch_top_n):
             if not message.strip():
                 return "", history
             return "", history + [[message, None]]
 
-        def bot_response(history, sys_prompt, temp, max_tok, tp):
+        def bot_response(history, sys_prompt, temp, max_tok, tp, enable_rag, rag_mode, rag_k, enable_web_knowledge, web_search_top_n, web_fetch_top_n):
             if not history or history[-1][1] is not None:
                 return history
             user_message = history[-1][0]
@@ -295,27 +477,33 @@ def create_demo() -> gr.Blocks:
                 temperature=temp,
                 max_new_tokens=max_tok,
                 top_p=tp,
+                enable_rag=enable_rag,
+                rag_mode=rag_mode,
+                rag_top_k=rag_k,
+                enable_web_knowledge=enable_web_knowledge,
+                web_search_top_n=web_search_top_n,
+                web_fetch_top_n=web_fetch_top_n,
             ):
                 history[-1][1] = partial
                 yield history
 
         submit_btn.click(
             fn=user_submit,
-            inputs=[msg, chatbot, system_prompt_box, temperature, max_tokens, top_p],
+            inputs=[msg, chatbot, system_prompt_box, temperature, max_tokens, top_p, enable_rag, rag_mode, rag_top_k, enable_web_knowledge, web_search_top_n, web_fetch_top_n],
             outputs=[msg, chatbot],
         ).then(
             fn=bot_response,
-            inputs=[chatbot, system_prompt_box, temperature, max_tokens, top_p],
+            inputs=[chatbot, system_prompt_box, temperature, max_tokens, top_p, enable_rag, rag_mode, rag_top_k, enable_web_knowledge, web_search_top_n, web_fetch_top_n],
             outputs=[chatbot],
         )
 
         msg.submit(
             fn=user_submit,
-            inputs=[msg, chatbot, system_prompt_box, temperature, max_tokens, top_p],
+            inputs=[msg, chatbot, system_prompt_box, temperature, max_tokens, top_p, enable_rag, rag_mode, rag_top_k, enable_web_knowledge, web_search_top_n, web_fetch_top_n],
             outputs=[msg, chatbot],
         ).then(
             fn=bot_response,
-            inputs=[chatbot, system_prompt_box, temperature, max_tokens, top_p],
+            inputs=[chatbot, system_prompt_box, temperature, max_tokens, top_p, enable_rag, rag_mode, rag_top_k, enable_web_knowledge, web_search_top_n, web_fetch_top_n],
             outputs=[chatbot],
         )
 
@@ -334,7 +522,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--model-path",
         type=str,
-        default="Qwen/Qwen2.5-7B-Instruct",
+        default="Qwen/Qwen3-8B/",
         help="模型路径",
     )
     parser.add_argument(
@@ -359,6 +547,36 @@ if __name__ == "__main__":
         action="store_true",
         help="不使用 4-bit 量化（需要更多显存）",
     )
+    parser.add_argument(
+        "--enable-web-knowledge",
+        action="store_true",
+        help="在用户提问时自动联网检索并增量补充知识库",
+    )
+    parser.add_argument(
+        "--rag-mode",
+        type=str,
+        choices=["basic", "agentic"],
+        default="basic",
+        help="RAG 模式，basic 保持原有拼接检索，agentic 启用 LangGraph/顺序图编排",
+    )
+    parser.add_argument(
+        "--rag-agentic-config",
+        type=str,
+        default="configs/rag_agentic.yaml",
+        help="Agentic RAG 配置文件路径",
+    )
+    parser.add_argument(
+        "--rag-db-dir",
+        type=str,
+        default=None,
+        help="RAG 向量数据库路径",
+    )
+    parser.add_argument(
+        "--web-knowledge-dir",
+        type=str,
+        default="data/knowledge/web",
+        help="实时联网知识 Markdown 落盘目录",
+    )
     args = parser.parse_args()
 
     # 加载 system prompts
@@ -369,7 +587,15 @@ if __name__ == "__main__":
         model_path=args.model_path,
         adapter_path=args.adapter_path,
         quantize=not args.no_quantize,
+        rag_db_dir=args.rag_db_dir,
     )
+
+    init_web_knowledge_system(
+        args.enable_web_knowledge,
+        db_dir=args.rag_db_dir,
+        knowledge_dir=args.web_knowledge_dir,
+    )
+    init_agentic_rag_system(args.rag_mode, args.rag_agentic_config)
 
     # 启动 Demo
     demo = create_demo()

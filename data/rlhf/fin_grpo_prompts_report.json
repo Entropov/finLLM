@@ -1,0 +1,74 @@
+{
+  "total": 5423,
+  "train": 5151,
+  "eval": 272,
+  "task_distribution": {
+    "financial_qa": 124,
+    "quant_strategy": 12,
+    "risk_assessment": 2,
+    "sentiment_analysis": 5000,
+    "stock_analysis": 285
+  },
+  "train_distribution": {
+    "financial_qa": 118,
+    "quant_strategy": 11,
+    "risk_assessment": 1,
+    "sentiment_analysis": 4750,
+    "stock_analysis": 271
+  },
+  "eval_distribution": {
+    "financial_qa": 6,
+    "quant_strategy": 1,
+    "risk_assessment": 1,
+    "sentiment_analysis": 250,
+    "stock_analysis": 14
+  },
+  "skipped_by_task": {
+    "financial_qa": 18876
+  },
+  "reward_summary_by_task": {
+    "financial_qa": {
+      "count": 124,
+      "avg_reward": 0.5718,
+      "p10_reward": 0.55,
+      "p50_reward": 0.55,
+      "p90_reward": 0.7
+    },
+    "quant_strategy": {
+      "count": 12,
+      "avg_reward": 0.1014,
+      "p10_reward": 0.0,
+      "p50_reward": 0.125,
+      "p90_reward": 0.1875
+    },
+    "risk_assessment": {
+      "count": 2,
+      "avg_reward": 0.43,
+      "p10_reward": 0.25,
+      "p50_reward": 0.25,
+      "p90_reward": 0.61
+    },
+    "sentiment_analysis": {
+      "count": 5000,
+      "avg_reward": 0.9998,
+      "p10_reward": 1.0,
+      "p50_reward": 1.0,
+      "p90_reward": 1.0
+    },
+    "stock_analysis": {
+      "count": 285,
+      "avg_reward": 0.7745,
+      "p10_reward": 0.3083,
+      "p50_reward": 0.8917,
+      "p90_reward": 1.0
+    }
+  },
+  "grpo_backend": {
+    "required": false,
+    "supported_backends": [
+      "EasyR1",
+      "TRL-GRPO"
+    ],
+    "note": "This project prepares GRPO data and reward specs. Training is skipped unless a compatible backend is detected."
+  }
+}
