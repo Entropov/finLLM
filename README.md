@@ -4,20 +4,6 @@
 
 > **免责声明：** 本项目仍处于研究阶段，模型输出仅供学习和实验参考，不构成投资建议，也不应直接用于生产决策。
 
-## 当前状态
-
-| 项目 | 状态 |
-|---|---|
-| 基座模型 | `Qwen/Qwen3-8B` |
-| 当前基准候选 | `sft-v2.7-core-selected` |
-| 核心任务 | `financial_qa`、`quant_strategy`、`stock_analysis` |
-| 训练方式 | QLoRA/LoRA SFT；提供 DPO 与 TRL-GRPO 实验入口 |
-| 推理方式 | Transformers、vLLM、基础 RAG、Agentic RAG |
-| 目标硬件 | 单卡 NVIDIA RTX 5090 32 GB |
-| Release Gate | **FAIL / HOLD** |
-
-当前最后一个保留候选是 `sft-v2.7-core-selected`。v2.8.2 stock contract adapter 因端到端评测退化已被拒绝；在 source-disjoint final holdout、gold/verifier 一致性和 reward attack suite 完成前，**不应启动 DPO/GRPO，也不应将当前 GRPO 配置视为已验证效果**。完整结论见 [v2.9 阶段策略复盘](docs/finllm_v2_9_strategy_review.md)。
-
 ## 核心能力
 
 - 六类金融任务数据管线：股票分析、量化策略、财报解读、情感分析、金融问答与风险评估。
@@ -58,7 +44,6 @@ finLLM/
 
 ## 环境准备
 
-推荐使用 Python 3.11、CUDA 环境和 24 GB 以上显存；完整 QLoRA 训练以 RTX 5090 32 GB 单卡为目标。
 
 ```bash
 git clone https://github.com/Entropov/finLLM.git
